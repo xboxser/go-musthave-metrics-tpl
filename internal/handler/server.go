@@ -37,6 +37,10 @@ func validateCountParams(params []string) bool {
 	return len(params) == 4
 }
 
+func validate404(params []string) bool {
+	return !(len(params) < 4)
+}
+
 func validateTypeMetrics(params []string) bool {
 	return params[1] != models.Counter && params[1] != models.Gauge
 }
@@ -55,6 +59,11 @@ func update(res http.ResponseWriter, req *http.Request) {
 
 	params := getParamsUrl(req.URL.Path)
 
+	if !validate404(params) {
+		http.Error(res, "Not found", http.StatusNotFound)
+		return
+	}
+
 	if !validateCountParams(params) {
 		http.Error(res, "Incorrect number of parameters", http.StatusMethodNotAllowed)
 		return
@@ -66,13 +75,13 @@ func update(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if valiteValueMetrics(params[3]) {
-		http.Error(res, "incorrect value", http.StatusMethodNotAllowed)
+		http.Error(res, "incorrect value", http.StatusBadRequest)
 		return
 	}
 
 	err := mStorage.Update(params[1], params[2], params[3])
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusMethodNotAllowed)
+		http.Error(res, err.Error(), http.StatusBadRequest)
 	}
 
 }

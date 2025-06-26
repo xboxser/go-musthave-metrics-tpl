@@ -70,7 +70,7 @@ func update(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if validateTypeMetrics(params) {
-		http.Error(res, "incorrect metric type", http.StatusMethodNotAllowed)
+		http.Error(res, "incorrect metric type", http.StatusBadRequest)
 		return
 	}
 

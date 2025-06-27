@@ -3,17 +3,28 @@ package handler
 import (
 	"fmt"
 	models "metrics/internal/model"
+	"metrics/internal/service"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
-var mStorage = models.NewMemStorage()
+type serverHandler struct {
+	service *service.ServerService
+}
 
-func Run() {
+func newServerHandler(service *service.ServerService) *serverHandler {
+	return &serverHandler{
+		service: service,
+	}
+}
+
+func Run(service *service.ServerService) {
 	fmt.Println("Run server")
+	h := newServerHandler(service)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/update/`, update)
+	mux.HandleFunc(`/update/`, h.update)
 
 	err := http.ListenAndServe(`:8080`, mux)
 	if err != nil {
@@ -50,7 +61,7 @@ func valiteValueMetrics(value string) bool {
 	return err != nil
 }
 
-func update(res http.ResponseWriter, req *http.Request) {
+func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
@@ -79,7 +90,7 @@ func update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := mStorage.Update(params[1], params[2], params[3])
+	err := h.service.Update(params[1], params[2], params[3])
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 	}

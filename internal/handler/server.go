@@ -32,7 +32,7 @@ func Run(service *service.ServerService) {
 	}
 }
 
-func getParamsUrl(path string) []string {
+func getParamsURL(path string) []string {
 	params := strings.Split(path, "/")
 	result := []string{}
 	for _, v := range params {
@@ -68,7 +68,7 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	params := getParamsUrl(req.URL.Path)
+	params := getParamsURL(req.URL.Path)
 
 	if !validate404(params) {
 		http.Error(res, "Not found", http.StatusNotFound)

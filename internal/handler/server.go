@@ -53,12 +53,12 @@ func validate404(params []string) bool {
 }
 
 func validateTypeMetrics(params []string) bool {
-	return params[1] != models.Counter && params[1] != models.Gauge
+	return params[1] == models.Counter || params[1] == models.Gauge
 }
 
 func valiteValueMetrics(value string) bool {
 	_, err := strconv.Atoi(value)
-	return err != nil
+	return err == nil
 }
 
 func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
@@ -80,12 +80,12 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if validateTypeMetrics(params) {
+	if !validateTypeMetrics(params) {
 		http.Error(res, "incorrect metric type", http.StatusBadRequest)
 		return
 	}
 
-	if valiteValueMetrics(params[3]) {
+	if !valiteValueMetrics(params[3]) {
 		http.Error(res, "incorrect value", http.StatusBadRequest)
 		return
 	}

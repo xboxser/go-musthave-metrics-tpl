@@ -57,7 +57,7 @@ func validateTypeMetrics(params []string) bool {
 }
 
 func valiteValueMetrics(value string) bool {
-	_, err := strconv.Atoi(value)
+	_, err := strconv.ParseFloat(value, 64)
 	return err == nil
 }
 

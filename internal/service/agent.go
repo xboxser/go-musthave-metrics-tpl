@@ -97,7 +97,7 @@ func (s *AgentService) Send() error {
 	}
 
 	for name, value := range s.model.Counter {
-		err := sender.SendRequest(models.Counter, name, fmt.Sprintf("%f", value))
+		err := sender.SendRequest(models.Counter, name, fmt.Sprintf("%v", value))
 		if err != nil {
 			fmt.Printf("error send Counter: %v", err)
 		}

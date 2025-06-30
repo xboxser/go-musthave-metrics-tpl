@@ -76,7 +76,7 @@ func TestValiteValueMetrics(t *testing.T) {
 	}{
 		{name: "int", value: "123", want: true},
 		{name: "string", value: "ffffff", want: false},
-		{name: "float", value: "55.0", want: false},
+		{name: "float", value: "55.0", want: true},
 		{name: "empty", value: "", want: false},
 	}
 	for _, tt := range tests {

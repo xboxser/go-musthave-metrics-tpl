@@ -19,10 +19,5 @@ func Run() {
 		if i%10 == 0 {
 			service.Send()
 		}
-
-		if i > 20 {
-			break
-		}
 	}
-	service.Print()
 }

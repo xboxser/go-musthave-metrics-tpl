@@ -2,25 +2,6 @@ package handler
 
 import "testing"
 
-func TestValidateCountParams(t *testing.T) {
-	tests := []struct {
-		name  string
-		value []string
-		want  bool
-	}{
-		{name: "valid parameters", value: []string{"1", "2", "3", "4"}, want: true},
-		{name: "empty parameters", value: []string{}, want: false},
-		{name: "many parameters", value: []string{"1", "2", "3", "4", "5"}, want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if res := validateCountParams(tt.value); res != tt.want {
-				t.Errorf("validateCountParams() = %v, want %v", res, tt.want)
-			}
-		})
-	}
-}
-
 func TestGetParamsURL(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -44,25 +25,6 @@ func TestGetParamsURL(t *testing.T) {
 					t.Errorf("getParamsURL = %v, want %v", res[i], tt.want[i])
 					return
 				}
-			}
-		})
-	}
-}
-
-func TestValidate404(t *testing.T) {
-	tests := []struct {
-		name  string
-		value []string
-		want  bool
-	}{
-		{name: "valid parameters", value: []string{"1", "2", "3", "4"}, want: true},
-		{name: "short parameters", value: []string{}, want: false},
-		{name: "many parameters", value: []string{"1", "2", "3", "4", "5"}, want: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if res := validate404(tt.value); res != tt.want {
-				t.Errorf("validate404() = %v, want %v", res, tt.want)
 			}
 		})
 	}

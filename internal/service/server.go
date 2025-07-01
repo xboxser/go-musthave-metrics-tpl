@@ -50,7 +50,7 @@ func (s *ServerService) GetValue(t string, name string) (string, error) {
 		if !ok {
 			return "", errors.New("empty value")
 		}
-		return fmt.Sprintf("%f", val), nil
+		return fmt.Sprintf("%g", val), nil
 
 	} else {
 		return "", errors.New("error get operation: incorrect type")
@@ -62,7 +62,7 @@ func (s *ServerService) GetAll() map[string]string {
 
 	res := map[string]string{}
 	for name, val := range guuge {
-		res["guuge "+name] = fmt.Sprintf("%v", val)
+		res["guuge "+name] = fmt.Sprintf("%g", val)
 	}
 
 	for name, val := range counter {

@@ -5,12 +5,19 @@ import (
 	"net/http"
 )
 
-const (
-	baseURL = "http://localhost:8080"
-)
+type Sender struct {
+	baseURL *string
+}
 
-func SendRequest(metricType string, metricName string, metricValue string) error {
-	url := fmt.Sprintf("%s/update/%s/%s/%s", baseURL, metricType, metricName, metricValue)
+func NewSender(baseURL *string) *Sender {
+	return &Sender{
+		baseURL: baseURL,
+	}
+}
+
+func (s *Sender) SendRequest(metricType string, metricName string, metricValue string) error {
+
+	url := fmt.Sprintf("http://%s/update/%s/%s/%s", *s.baseURL, metricType, metricName, metricValue)
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)

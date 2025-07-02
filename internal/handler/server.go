@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"flag"
 	"fmt"
 	"html/template"
 	models "metrics/internal/model"
 	"metrics/internal/service"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -26,12 +28,16 @@ func Run(service *service.ServerService) {
 	fmt.Println("Run server")
 	h := newServerHandler(service)
 
+	agentFlags := flag.NewFlagSet("agent", flag.ExitOnError)
+	portSever := agentFlags.String("a", "localhost:8080", "port server")
+	agentFlags.Parse(os.Args[1:])
+
 	r := chi.NewRouter()
 	r.Get("/value/{type}/{name}", h.value)
 	r.Post("/update/{type}/{name}/{value}", h.update)
 	r.Get("/", h.main)
 
-	err := http.ListenAndServe(`:8080`, r)
+	err := http.ListenAndServe(*portSever, r)
 	if err != nil {
 		panic(err)
 	}

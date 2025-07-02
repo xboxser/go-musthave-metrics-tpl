@@ -49,3 +49,23 @@ func TestValiteValueMetrics(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateTypeMetrics(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{name: "gauge", value: "gauge", want: true},
+		{name: "counter", value: "counter", want: true},
+		{name: "random string", value: "trololo", want: false},
+		{name: "empty", value: "", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if res := validateTypeMetrics(tt.value); res != tt.want {
+				t.Errorf("validateTypeMetrics() = %v, want %v", res, tt.want)
+			}
+		})
+	}
+}

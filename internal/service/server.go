@@ -34,7 +34,6 @@ func (s *ServerService) Update(t string, name string, val string) error {
 	} else {
 		return errors.New("error update operation: incorrect type")
 	}
-	fmt.Println(s)
 	return nil
 }
 

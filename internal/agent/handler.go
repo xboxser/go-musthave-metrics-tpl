@@ -3,8 +3,8 @@ package agent
 import (
 	"flag"
 	"metrics/internal/agent/sender"
+	"metrics/internal/agent/service"
 	models "metrics/internal/model"
-	"metrics/internal/service"
 	"os"
 	"time"
 )

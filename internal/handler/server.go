@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"flag"
 	"fmt"
 	"html/template"
 	models "metrics/internal/model"
@@ -26,12 +27,16 @@ func Run(service *service.ServerService) {
 	fmt.Println("Run server")
 	h := newServerHandler(service)
 
+	portSever := flag.String("a", ":8080", "port server")
+	flag.Parse()
+	fmt.Println("Server port", portSever)
+
 	r := chi.NewRouter()
 	r.Get("/value/{type}/{name}", h.value)
 	r.Post("/update/{type}/{name}/{value}", h.update)
 	r.Get("/", h.main)
 
-	err := http.ListenAndServe(`:8080`, r)
+	err := http.ListenAndServe(*portSever, r)
 	if err != nil {
 		panic(err)
 	}

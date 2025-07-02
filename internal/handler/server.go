@@ -7,6 +7,7 @@ import (
 	models "metrics/internal/model"
 	"metrics/internal/service"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -27,9 +28,9 @@ func Run(service *service.ServerService) {
 	fmt.Println("Run server")
 	h := newServerHandler(service)
 
-	portSever := flag.String("a", ":8080", "port server")
-	flag.Parse()
-	fmt.Println("Server port", portSever)
+	agentFlags := flag.NewFlagSet("agent", flag.ExitOnError)
+	portSever := agentFlags.String("a", "localhost:8080", "port server")
+	agentFlags.Parse(os.Args[1:])
 
 	r := chi.NewRouter()
 	r.Get("/value/{type}/{name}", h.value)

@@ -1,23 +1,38 @@
 package agent
 
 import (
+	"flag"
+	"metrics/internal/agent/sender"
 	models "metrics/internal/model"
 	"metrics/internal/service"
+	"os"
 	"time"
 )
 
 func Run() {
+
+	agentFlags := flag.NewFlagSet("agent", flag.ExitOnError)
+
+	reportInterval := agentFlags.Int("r", 10, "The interval for sending data to the server")
+	pollInterval := agentFlags.Int("p", 2, "The interval for building metrics")
+	url := agentFlags.String("a", "localhost:8080", "port server")
+	agentFlags.Parse(os.Args[1:])
+
 	metricsModel := models.NewMemStorage()
-	service := service.NewAgentService(metricsModel)
+	send := sender.NewSender(url)
+	service := service.NewAgentService(metricsModel, send)
 
 	i := 0
 	for {
-		service.CheckRuntime()
-		i += 2
-		time.Sleep(2 * time.Second)
+		if i%*pollInterval == 0 {
+			service.CheckRuntime()
+		}
 
-		if i%10 == 0 {
-			service.Send()
+		i += 1
+		time.Sleep(1 * time.Second)
+
+		if i%*reportInterval == 0 {
+			service.SendMetrics()
 		}
 	}
 }

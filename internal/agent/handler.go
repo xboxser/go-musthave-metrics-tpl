@@ -2,6 +2,7 @@ package agent
 
 import (
 	"flag"
+	"fmt"
 	"metrics/internal/agent/sender"
 	"metrics/internal/agent/service"
 	models "metrics/internal/model"
@@ -22,17 +23,21 @@ func Run() {
 	send := sender.NewSender(url)
 	service := service.NewAgentService(metricsModel, send)
 
-	i := 0
+	pollTicker := time.NewTicker(time.Duration(*pollInterval) * time.Second)
+	reportTicker := time.NewTicker(time.Duration(*reportInterval) * time.Second)
+	defer pollTicker.Stop()
+	defer reportTicker.Stop()
+
 	for {
-		if i%*pollInterval == 0 {
+		select {
+		case <-pollTicker.C:
 			service.CheckRuntime()
-		}
-
-		i += 1
-		time.Sleep(1 * time.Second)
-
-		if i%*reportInterval == 0 {
-			service.SendMetrics()
+		case <-reportTicker.C:
+			err := service.SendMetrics()
+			if err != nil {
+				fmt.Printf("fail to send %v", err)
+				return
+			}
 		}
 	}
 }

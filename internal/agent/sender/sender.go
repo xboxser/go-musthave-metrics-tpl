@@ -7,11 +7,13 @@ import (
 
 type Sender struct {
 	baseURL *string
+	client  *http.Client
 }
 
 func NewSender(baseURL *string) *Sender {
 	return &Sender{
 		baseURL: baseURL,
+		client:  &http.Client{},
 	}
 }
 
@@ -25,8 +27,7 @@ func (s *Sender) SendRequest(metricType string, metricName string, metricValue s
 	req.Header.Set("Content-Type", "text/plain")
 	req.Header.Set("Content-Length", "0")
 
-	client := &http.Client{}
-	response, err := client.Do(req)
+	response, err := s.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed request: %v", err)
 	}

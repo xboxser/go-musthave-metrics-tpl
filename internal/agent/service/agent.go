@@ -92,19 +92,23 @@ func (s *AgentService) CheckRuntime() {
 
 func (s *AgentService) SendMetrics() error {
 
+	var errs []error
 	for name, value := range s.model.Gauge {
 		err := s.send.SendRequest(models.Gauge, name, fmt.Sprintf("%f", value))
 		if err != nil {
-			fmt.Printf("error send Gauge: %v", err)
+			errs = append(errs, fmt.Errorf("error send Gauge: %v", err))
 		}
 	}
 
 	for name, value := range s.model.Counter {
 		err := s.send.SendRequest(models.Counter, name, fmt.Sprintf("%v", value))
 		if err != nil {
-			fmt.Printf("error send Counter: %v", err)
+			errs = append(errs, fmt.Errorf("error send Counter: %v", err))
 		}
 	}
 
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to send metrics: %w", errors.Join(errs...))
+	}
 	return nil
 }

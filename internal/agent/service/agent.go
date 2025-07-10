@@ -11,11 +11,13 @@ import (
 
 type AgentService struct {
 	model *models.MemStorage
+	send  *sender.Sender
 }
 
-func NewAgentService(model *models.MemStorage) *AgentService {
+func NewAgentService(model *models.MemStorage, send *sender.Sender) *AgentService {
 	return &AgentService{
 		model: model,
+		send:  send,
 	}
 }
 
@@ -88,20 +90,25 @@ func (s *AgentService) CheckRuntime() {
 	s.addCounter("PollCount", 1)
 }
 
-func (s *AgentService) Send() error {
+func (s *AgentService) SendMetrics() error {
+
+	var errs []error
 	for name, value := range s.model.Gauge {
-		err := sender.SendRequest(models.Gauge, name, fmt.Sprintf("%f", value))
+		err := s.send.SendRequest(models.Gauge, name, fmt.Sprintf("%f", value))
 		if err != nil {
-			fmt.Printf("error send Gauge: %v", err)
+			errs = append(errs, fmt.Errorf("error send Gauge: %v", err))
 		}
 	}
 
 	for name, value := range s.model.Counter {
-		err := sender.SendRequest(models.Counter, name, fmt.Sprintf("%v", value))
+		err := s.send.SendRequest(models.Counter, name, fmt.Sprintf("%v", value))
 		if err != nil {
-			fmt.Printf("error send Counter: %v", err)
+			errs = append(errs, fmt.Errorf("error send Counter: %v", err))
 		}
 	}
 
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to send metrics: %w", errors.Join(errs...))
+	}
 	return nil
 }

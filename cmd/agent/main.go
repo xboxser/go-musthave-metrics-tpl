@@ -1,7 +1,7 @@
 package main
 
 import (
-	"metrics/internal/agent"
+	agent "metrics/internal/agent/handler"
 )
 
 func main() {

@@ -17,8 +17,9 @@ func newConfigServer() *configSever {
 
 	if err != nil || cfg.PortSever == "" {
 		agentFlags := flag.NewFlagSet("agent", flag.ExitOnError)
-		cfg.PortSever = *agentFlags.String("a", "localhost:8080", "port server")
+		port := agentFlags.String("a", "localhost:8080", "port server")
 		agentFlags.Parse(os.Args[1:])
+		cfg.PortSever = *port
 	}
 
 	return &cfg

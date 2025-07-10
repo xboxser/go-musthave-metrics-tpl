@@ -13,7 +13,7 @@ func Run() {
 	configAgent := newCongigAgent()
 
 	metricsModel := models.NewMemStorage()
-	send := sender.NewSender(&configAgent.Url)
+	send := sender.NewSender(&configAgent.URL)
 	service := service.NewAgentService(metricsModel, send)
 
 	pollTicker := time.NewTicker(time.Duration(configAgent.PollInterval) * time.Second)

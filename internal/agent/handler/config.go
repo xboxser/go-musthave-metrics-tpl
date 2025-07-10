@@ -10,7 +10,7 @@ import (
 type configAgent struct {
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
-	Url            string `env:"ADDRESS"`
+	URL            string `env:"ADDRESS"`
 }
 
 func newCongigAgent() *configAgent {
@@ -29,8 +29,8 @@ func newCongigAgent() *configAgent {
 	if cfg.ReportInterval == 0 {
 		cfg.ReportInterval = *reportInterval
 	}
-	if cfg.Url == "" {
-		cfg.Url = *url
+	if cfg.URL == "" {
+		cfg.URL = *url
 	}
 
 	return &cfg

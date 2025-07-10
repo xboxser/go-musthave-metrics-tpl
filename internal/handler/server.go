@@ -1,13 +1,11 @@
 package handler
 
 import (
-	"flag"
 	"fmt"
 	"html/template"
 	models "metrics/internal/model"
 	"metrics/internal/service"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -16,28 +14,28 @@ import (
 
 type serverHandler struct {
 	service *service.ServerService
+	config  *configSever
 }
 
-func newServerHandler(service *service.ServerService) *serverHandler {
+func newServerHandler(service *service.ServerService, config *configSever) *serverHandler {
 	return &serverHandler{
 		service: service,
+		config:  config,
 	}
 }
 
 func Run(service *service.ServerService) {
 	fmt.Println("Run server")
-	h := newServerHandler(service)
 
-	agentFlags := flag.NewFlagSet("agent", flag.ExitOnError)
-	portSever := agentFlags.String("a", "localhost:8080", "port server")
-	agentFlags.Parse(os.Args[1:])
+	congig := newConfigServer()
+	h := newServerHandler(service, congig)
 
 	r := chi.NewRouter()
 	r.Get("/value/{type}/{name}", h.value)
 	r.Post("/update/{type}/{name}/{value}", h.update)
 	r.Get("/", h.main)
 
-	err := http.ListenAndServe(*portSever, r)
+	err := http.ListenAndServe(h.config.PortSever, r)
 	if err != nil {
 		panic(err)
 	}

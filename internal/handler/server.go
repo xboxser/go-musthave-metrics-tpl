@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"html/template"
+	"metrics/internal/handler/middleware"
 	models "metrics/internal/model"
 	"metrics/internal/service"
 	"net/http"
@@ -15,12 +16,14 @@ import (
 type serverHandler struct {
 	service *service.ServerService
 	config  *configSever
+	m       *middleware.RequestMiddleware
 }
 
 func newServerHandler(service *service.ServerService, config *configSever) *serverHandler {
 	return &serverHandler{
 		service: service,
 		config:  config,
+		m:       middleware.NewRequestMiddleware(),
 	}
 }
 
@@ -31,9 +34,9 @@ func Run(service *service.ServerService) {
 	h := newServerHandler(service, congig)
 
 	r := chi.NewRouter()
-	r.Get("/value/{type}/{name}", h.value)
-	r.Post("/update/{type}/{name}/{value}", h.update)
-	r.Get("/", h.main)
+	r.Get("/value/{type}/{name}", h.m.WithLogging(h.value))
+	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
+	r.Get("/", h.m.WithLogging(h.main))
 
 	err := http.ListenAndServe(h.config.PortSever, r)
 	if err != nil {

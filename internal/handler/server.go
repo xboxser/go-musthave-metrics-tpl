@@ -37,8 +37,8 @@ func Run(service *service.ServerService) {
 
 	r := chi.NewRouter()
 	r.Get("/value/{type}/{name}", h.m.WithLogging(h.value))
-	r.Post("/value/", h.m.WithLogging(h.valueJson))
-	r.Post("/update/", h.m.WithLogging(h.updateJson))
+	r.Post("/value/", h.m.WithLogging(h.valueJSON))
+	r.Post("/update/", h.m.WithLogging(h.updateJSON))
 	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
 	r.Get("/", h.m.WithLogging(h.main))
 
@@ -69,7 +69,7 @@ func valiteValueMetrics(value string) bool {
 	return err == nil
 }
 
-func (h *serverHandler) updateJson(res http.ResponseWriter, req *http.Request) {
+func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
@@ -130,7 +130,7 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 
 }
 
-func (h *serverHandler) valueJson(res http.ResponseWriter, req *http.Request) {
+func (h *serverHandler) valueJSON(res http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
 		return

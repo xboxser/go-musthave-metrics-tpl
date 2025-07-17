@@ -37,7 +37,12 @@ func Run(service *service.ServerService) {
 
 	r := chi.NewRouter()
 	r.Get("/value/{type}/{name}", h.m.WithLogging(h.value))
-	r.Post("/value/", h.m.WithLogging(h.valueJSON))
+	r.Route("/update", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.updateJSON))
+	})
+	r.Route("/value", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.valueJSON))
+	})
 	r.Post("/update/", h.m.WithLogging(h.updateJSON))
 	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
 	r.Get("/", h.m.WithLogging(h.main))

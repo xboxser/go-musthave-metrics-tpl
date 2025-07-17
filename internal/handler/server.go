@@ -70,7 +70,7 @@ func valiteValueMetrics(value string) bool {
 }
 
 func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
-
+	res.Header().Set("Content-Type", "application/json")
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
 		return
@@ -96,6 +96,7 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	fmt.Println(metrics)
 	err = h.service.UpdateJSON(&metrics)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)

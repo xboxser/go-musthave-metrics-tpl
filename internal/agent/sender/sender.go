@@ -1,6 +1,7 @@
 package sender
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 )
@@ -17,15 +18,15 @@ func NewSender(baseURL *string) *Sender {
 	}
 }
 
-func (s *Sender) SendRequest(metricType string, metricName string, metricValue string) error {
+func (s *Sender) SendRequest(json []byte) error {
 
-	url := fmt.Sprintf("http://%s/update/%s/%s/%s", *s.baseURL, metricType, metricName, metricValue)
-	req, err := http.NewRequest(http.MethodPost, url, nil)
+	url := fmt.Sprintf("http://%s/update/", *s.baseURL)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(json))
+
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
-	req.Header.Set("Content-Type", "text/plain")
-	req.Header.Set("Content-Length", "0")
+	req.Header.Set("Content-Type", "application/json")
 
 	response, err := s.client.Do(req)
 	if err != nil {

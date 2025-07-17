@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -91,17 +92,37 @@ func (s *AgentService) CheckRuntime() {
 }
 
 func (s *AgentService) SendMetrics() error {
-
+	var metrics models.Metrics
 	var errs []error
+
 	for name, value := range s.model.Gauge {
-		err := s.send.SendRequest(models.Gauge, name, fmt.Sprintf("%f", value))
+
+		metrics.ID = name
+		metrics.MType = models.Gauge
+		metrics.Value = &value
+		metrics.Delta = nil
+		resp, err := json.Marshal(metrics)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error json Gauge: %v", err))
+			continue
+		}
+		err = s.send.SendRequest(resp)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error send Gauge: %v", err))
 		}
 	}
 
 	for name, value := range s.model.Counter {
-		err := s.send.SendRequest(models.Counter, name, fmt.Sprintf("%v", value))
+		metrics.ID = name
+		metrics.MType = models.Counter
+		metrics.Value = nil
+		metrics.Delta = &value
+		resp, err := json.Marshal(metrics)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error json Counter: %v", err))
+			continue
+		}
+		err = s.send.SendRequest(resp)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error send Counter: %v", err))
 		}

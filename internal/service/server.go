@@ -17,7 +17,7 @@ func NewServeService(model models.Storage) *ServerService {
 	}
 }
 
-func (s *ServerService) UpdateJson(m *models.Metrics) error {
+func (s *ServerService) UpdateJSON(m *models.Metrics) error {
 	if m.MType == models.Counter {
 		s.model.UpdateCounter(m.ID, *m.Delta)
 	} else if m.MType == models.Gauge {
@@ -48,9 +48,8 @@ func (s *ServerService) Update(t string, name string, val string) error {
 	return nil
 }
 
-func (s *ServerService) GetValueJson(m *models.Metrics) error {
+func (s *ServerService) GetValueJSON(m *models.Metrics) error {
 	if m.MType == models.Counter {
-		s.model.UpdateCounter(m.ID, *m.Delta)
 		val, ok := s.model.GetCounter(m.ID)
 		if !ok {
 			return errors.New("empty value")

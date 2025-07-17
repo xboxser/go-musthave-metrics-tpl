@@ -96,7 +96,7 @@ func (h *serverHandler) updateJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = h.service.UpdateJson(&metrics)
+	err = h.service.UpdateJSON(&metrics)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 	}
@@ -156,7 +156,7 @@ func (h *serverHandler) valueJson(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = h.service.GetValueJson(&metrics)
+	err = h.service.GetValueJSON(&metrics)
 	if err != nil {
 		http.Error(res, "not value", http.StatusNotFound)
 		return

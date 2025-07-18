@@ -29,7 +29,7 @@ func Run() {
 			err := service.SendMetrics()
 			if err != nil {
 				fmt.Printf("fail to send %v", err)
-				return
+				// return
 			}
 		}
 	}

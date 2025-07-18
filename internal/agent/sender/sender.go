@@ -43,6 +43,7 @@ func (s *Sender) SendRequest(json []byte) error {
 	response, err := s.client.Do(req)
 	if err != nil {
 		s.sugar.Debugln(
+			"error",
 			"uri", url,
 			"json", string(json),
 		)

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"io"
 	"net/http"
 	"time"
 
@@ -29,6 +30,13 @@ func NewRequestMiddleware() *RequestMiddleware {
 func (m *RequestMiddleware) WithLogging(h http.HandlerFunc) http.HandlerFunc {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+
+		body, _ := io.ReadAll(r.Body)
+		m.sugar.Infoln(
+			"uri", r.RequestURI,
+			"method", r.Method,
+			string(body),
+		)
 
 		responseData := &responseData{
 			status: 0,

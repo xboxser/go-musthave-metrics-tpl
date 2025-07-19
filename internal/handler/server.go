@@ -85,6 +85,7 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 	_, err := buf.ReadFrom(req.Body)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
+		fmt.Println("error read  body", err)
 		return
 	}
 	var metrics models.Metrics
@@ -92,6 +93,7 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 	// десериализуем JSON в Visitor
 	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
+		fmt.Println("error read  json", err)
 		return
 	}
 

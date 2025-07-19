@@ -86,6 +86,8 @@ func (s *AgentService) CheckRuntime() {
 	s.addGauge("StackSys", mem.StackSys)
 	s.addGauge("Sys", mem.Sys)
 	s.addGauge("TotalAlloc", mem.TotalAlloc)
+	s.addGauge("NumForcedGC", mem.NumForcedGC)
+	s.addGauge("NumForcedGC", mem.NumGC)
 
 	s.addGauge("RandomValue", rand.Float64())
 	s.addCounter("PollCount", 1)

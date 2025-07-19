@@ -30,6 +30,8 @@ func (s *AgentService) addGauge(name string, val interface{}) error {
 		floatVal = v
 	case int:
 		floatVal = float64(v)
+	case uint32:
+		floatVal = float64(v)
 	case int64:
 		floatVal = float64(v)
 	case uint64:

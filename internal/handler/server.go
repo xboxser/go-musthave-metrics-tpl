@@ -43,7 +43,6 @@ func Run(service *service.ServerService) {
 	r.Route("/value", func(r chi.Router) {
 		r.Post("/", h.m.WithLogging(h.valueJSON))
 	})
-	r.Post("/update/", h.m.WithLogging(h.updateJSON))
 	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
 	r.Get("/", h.m.WithLogging(h.main))
 

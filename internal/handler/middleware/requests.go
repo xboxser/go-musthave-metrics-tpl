@@ -31,7 +31,17 @@ func (m *RequestMiddleware) WithLogging(h http.HandlerFunc) http.HandlerFunc {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		body, _ := io.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
+
+		if err != nil {
+			m.sugar.Infoln(
+				"uri", r.RequestURI,
+				"method", r.Method,
+				"error read body", err,
+			)
+			return
+		}
+
 		m.sugar.Infoln(
 			"uri", r.RequestURI,
 			"method", r.Method,

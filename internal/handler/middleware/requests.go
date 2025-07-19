@@ -39,14 +39,13 @@ func (m *RequestMiddleware) WithLogging(h http.HandlerFunc) http.HandlerFunc {
 				"method", r.Method,
 				"error read body", err,
 			)
-			return
+		} else {
+			m.sugar.Infoln(
+				"uri", r.RequestURI,
+				"method", r.Method,
+				string(body),
+			)
 		}
-
-		m.sugar.Infoln(
-			"uri", r.RequestURI,
-			"method", r.Method,
-			string(body),
-		)
 
 		responseData := &responseData{
 			status: 0,

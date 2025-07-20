@@ -107,6 +107,15 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 	}
+
+	resp, err := json.Marshal(metrics)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
+	res.Write(resp)
 }
 
 func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {

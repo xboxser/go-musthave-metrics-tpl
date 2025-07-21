@@ -2,41 +2,31 @@ package middleware
 
 import (
 	"compress/gzip"
-	"io"
 	"net/http"
 	"strings"
 )
 
 type gzipWriter struct {
 	http.ResponseWriter
-	Writer io.Writer
+	gzWriter *gzip.Writer
+	disabled bool
 }
 
 func (w gzipWriter) Write(b []byte) (int, error) {
-
-	if w.Header().Get("Content-Type") == "" {
-		w.Header().Set("Content-Type", http.DetectContentType(b))
-	}
-	contentType := w.Header().Get("Content-Type")
-	// w.Writer будет отвечать за gzip-сжатие, поэтому пишем в него
-	allowedTypes := []string{
-		"application/json",
-		"text/html",
-	}
-
-	checkAllowedTypes := false
-	for _, v := range allowedTypes {
-
-		if strings.Contains(contentType, v) {
-			checkAllowedTypes = true
-		}
-	}
-	// тип контента не поддерживается, не сжимаем
-	if !checkAllowedTypes {
+	if w.disabled || w.gzWriter == nil {
 		return w.ResponseWriter.Write(b)
 	}
+	return w.gzWriter.Write(b)
+}
 
-	return w.Writer.Write(b)
+func (w *gzipWriter) Close() {
+	if w.gzWriter != nil {
+		w.gzWriter.Close()
+	}
+}
+
+func (w *gzipWriter) DisableCompression() {
+	w.disabled = true
 }
 
 func GzipMiddleware(next http.Handler) http.Handler {
@@ -58,18 +48,32 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		gzw := gzip.NewWriter(w)
-		defer gzw.Close()
-
-		w.Header().Set("Content-Encoding", "gzip")
-
-		// Обертка для ResponseWriter для перехвата записи
-		grw := &gzipWriter{
-			ResponseWriter: w,
-			Writer:         gzw,
-		}
+		grw := &gzipWriter{ResponseWriter: w}
+		defer grw.Close()
 
 		next.ServeHTTP(grw, r)
+
+		//
+		contentType := grw.Header().Get("Content-Type")
+		allowedTypes := []string{
+			"application/json",
+			"text/html",
+		}
+
+		checkAllowedTypes := false
+		for _, v := range allowedTypes {
+			if strings.Contains(contentType, v) {
+				checkAllowedTypes = true
+				break
+			}
+		}
+
+		// Если тип контента не поддерживается, отменяем сжатие
+		if !checkAllowedTypes {
+			grw.DisableCompression()
+		} else {
+			grw.Header().Set("Content-Encoding", "gzip")
+		}
 
 	})
 }

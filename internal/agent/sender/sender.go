@@ -2,6 +2,7 @@ package sender
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"net/http"
 
@@ -32,8 +33,19 @@ func NewSender(baseURL *string) *Sender {
 
 func (s *Sender) SendRequest(json []byte) error {
 
+	var compressedBuf bytes.Buffer
+	gz := gzip.NewWriter(&compressedBuf)
+
+	// Сжатие данных
+	if _, err := gz.Write(json); err != nil {
+		return fmt.Errorf("ошибка сжатия данных: %w", err)
+	}
+	if err := gz.Close(); err != nil {
+		return fmt.Errorf("ошибка закрытия gzip writer: %w", err)
+	}
+	fmt.Println(&compressedBuf)
 	url := fmt.Sprintf("http://%s/update/", *s.baseURL)
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(json))
+	req, err := http.NewRequest(http.MethodPost, url, &compressedBuf)
 
 	if err != nil {
 		s.sugar.Infoln(
@@ -45,7 +57,7 @@ func (s *Sender) SendRequest(json []byte) error {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-
+	req.Header.Set("Content-Encoding", "gzip")
 	response, err := s.client.Do(req)
 	if err != nil {
 		s.sugar.Infoln(

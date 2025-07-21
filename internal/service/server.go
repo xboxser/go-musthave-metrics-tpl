@@ -17,6 +17,21 @@ func NewServeService(model models.Storage) *ServerService {
 	}
 }
 
+func (s *ServerService) UpdateJSON(m *models.Metrics) error {
+	if m.MType == models.Counter {
+		s.model.UpdateCounter(m.ID, *m.Delta)
+		val, _ := s.model.GetCounter(m.ID)
+		m.Delta = &val
+	} else if m.MType == models.Gauge {
+		s.model.UpdateGauge(m.ID, *m.Value)
+		val, _ := s.model.GetGauge(m.ID)
+		m.Value = &val
+	} else {
+		return errors.New("error update operation: incorrect type")
+	}
+	return nil
+}
+
 func (s *ServerService) Update(t string, name string, val string) error {
 
 	if t == models.Counter {
@@ -31,6 +46,25 @@ func (s *ServerService) Update(t string, name string, val string) error {
 			return errors.New("error update operation: incorrect type value")
 		}
 		s.model.UpdateGauge(name, val)
+	} else {
+		return errors.New("error update operation: incorrect type")
+	}
+	return nil
+}
+
+func (s *ServerService) GetValueJSON(m *models.Metrics) error {
+	if m.MType == models.Counter {
+		val, ok := s.model.GetCounter(m.ID)
+		if !ok {
+			return errors.New("empty value")
+		}
+		m.Delta = &val
+	} else if m.MType == models.Gauge {
+		val, ok := s.model.GetGauge(m.ID)
+		if !ok {
+			return errors.New("empty value")
+		}
+		m.Value = &val
 	} else {
 		return errors.New("error update operation: incorrect type")
 	}

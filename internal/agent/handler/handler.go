@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"fmt"
 	"metrics/internal/agent/sender"
 	"metrics/internal/agent/service"
 	models "metrics/internal/model"
@@ -26,11 +25,7 @@ func Run() {
 		case <-pollTicker.C:
 			service.CheckRuntime()
 		case <-reportTicker.C:
-			err := service.SendMetrics()
-			if err != nil {
-				fmt.Printf("fail to send %v", err)
-				return
-			}
+			_ = service.SendMetrics()
 		}
 	}
 }

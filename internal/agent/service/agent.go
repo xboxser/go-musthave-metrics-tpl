@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -28,6 +29,8 @@ func (s *AgentService) addGauge(name string, val interface{}) error {
 	case float64:
 		floatVal = v
 	case int:
+		floatVal = float64(v)
+	case uint32:
 		floatVal = float64(v)
 	case int64:
 		floatVal = float64(v)
@@ -85,23 +88,45 @@ func (s *AgentService) CheckRuntime() {
 	s.addGauge("StackSys", mem.StackSys)
 	s.addGauge("Sys", mem.Sys)
 	s.addGauge("TotalAlloc", mem.TotalAlloc)
+	s.addGauge("NumForcedGC", mem.NumForcedGC)
+	s.addGauge("NumGC", mem.NumGC)
 
 	s.addGauge("RandomValue", rand.Float64())
 	s.addCounter("PollCount", 1)
 }
 
 func (s *AgentService) SendMetrics() error {
-
+	var metrics models.Metrics
 	var errs []error
+
 	for name, value := range s.model.Gauge {
-		err := s.send.SendRequest(models.Gauge, name, fmt.Sprintf("%f", value))
+
+		metrics.ID = name
+		metrics.MType = models.Gauge
+		metrics.Value = &value
+		metrics.Delta = nil
+		resp, err := json.Marshal(metrics)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error json Gauge: %v", err))
+			continue
+		}
+		err = s.send.SendRequest(resp)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error send Gauge: %v", err))
 		}
 	}
 
 	for name, value := range s.model.Counter {
-		err := s.send.SendRequest(models.Counter, name, fmt.Sprintf("%v", value))
+		metrics.ID = name
+		metrics.MType = models.Counter
+		metrics.Value = nil
+		metrics.Delta = &value
+		resp, err := json.Marshal(metrics)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error json Counter: %v", err))
+			continue
+		}
+		err = s.send.SendRequest(resp)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error send Counter: %v", err))
 		}

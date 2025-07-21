@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"metrics/internal/handler/middleware"
@@ -35,6 +37,12 @@ func Run(service *service.ServerService) {
 
 	r := chi.NewRouter()
 	r.Get("/value/{type}/{name}", h.m.WithLogging(h.value))
+	r.Route("/update", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.updateJSON))
+	})
+	r.Route("/value", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.valueJSON))
+	})
 	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
 	r.Get("/", h.m.WithLogging(h.main))
 
@@ -65,6 +73,51 @@ func valiteValueMetrics(value string) bool {
 	return err == nil
 }
 
+func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "application/json")
+	if req.Method != http.MethodPost {
+		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// читаем тело запроса
+	var buf bytes.Buffer
+	_, err := buf.ReadFrom(req.Body)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		fmt.Println("error read  body", err)
+		return
+	}
+	var metrics models.Metrics
+
+	// десериализуем JSON в Visitor
+	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		fmt.Println("error read  json", err)
+		return
+	}
+
+	if !validateTypeMetrics(metrics.MType) {
+		http.Error(res, "incorrect metric type", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println(metrics)
+	err = h.service.UpdateJSON(&metrics)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+	}
+
+	resp, err := json.Marshal(metrics)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
+	res.Write(resp)
+}
+
 func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method != http.MethodPost {
@@ -91,6 +144,49 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 	}
 
+}
+
+func (h *serverHandler) valueJSON(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// читаем тело запроса
+	var buf bytes.Buffer
+	_, err := buf.ReadFrom(req.Body)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var metrics models.Metrics
+
+	// десериализуем JSON в Visitor
+	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !validateTypeMetrics(metrics.MType) {
+		http.Error(res, "incorrect metric type", http.StatusBadRequest)
+		return
+	}
+
+	err = h.service.GetValueJSON(&metrics)
+	if err != nil {
+		http.Error(res, "not value", http.StatusNotFound)
+		return
+	}
+
+	resp, err := json.Marshal(metrics)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
+	res.Write(resp)
 }
 
 func (h *serverHandler) value(res http.ResponseWriter, req *http.Request) {

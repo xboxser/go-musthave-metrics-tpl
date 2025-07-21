@@ -13,7 +13,29 @@ type gzipWriter struct {
 }
 
 func (w gzipWriter) Write(b []byte) (int, error) {
+
+	if w.Header().Get("Content-Type") == "" {
+		w.Header().Set("Content-Type", http.DetectContentType(b))
+	}
+	contentType := w.Header().Get("Content-Type")
 	// w.Writer будет отвечать за gzip-сжатие, поэтому пишем в него
+	allowedTypes := []string{
+		"application/json",
+		"text/html",
+	}
+
+	checkAllowedTypes := false
+	for _, v := range allowedTypes {
+
+		if strings.Contains(contentType, v) {
+			checkAllowedTypes = true
+		}
+	}
+	// тип контента не поддерживается, не сжимаем
+	if !checkAllowedTypes {
+		return w.ResponseWriter.Write(b)
+	}
+
 	return w.Writer.Write(b)
 }
 
@@ -32,25 +54,6 @@ func GzipMiddleware(next http.Handler) http.Handler {
 		// проверяем ждет ли ответа в формате gzip
 
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		contentType := w.Header().Get("Content-Type")
-		allowedTypes := []string{
-			"application/json",
-			"text/html",
-		}
-
-		checkAllowedTypes := false
-		for _, v := range allowedTypes {
-			if strings.Contains(contentType, v) {
-				checkAllowedTypes = true
-			}
-		}
-
-		// тип контента не поддерживается, пропускаем сжатие
-		if !checkAllowedTypes {
 			next.ServeHTTP(w, r)
 			return
 		}

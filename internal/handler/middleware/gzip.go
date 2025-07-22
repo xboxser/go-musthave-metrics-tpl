@@ -3,41 +3,56 @@ package middleware
 import (
 	"compress/gzip"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 )
 
 type gzipWriter struct {
 	http.ResponseWriter
-	gzWriter *gzip.Writer
-	disabled bool
+	gzWriter       *gzip.Writer
+	isCompressible bool
 }
 
 func (w *gzipWriter) Write(b []byte) (int, error) {
-	if w.disabled || w.gzWriter == nil {
+	// w.Writer будет отвечать за gzip-сжатие, поэтому пишем в него
+	fmt.Println("isCompressible", w.isCompressible)
+	fmt.Println("type", w.Header().Get("Content-Type"))
+	if !w.isCompressible {
+		// Если тип не поддерживается — не сжимаем
+		fmt.Println("not use gzip")
 		return w.ResponseWriter.Write(b)
 	}
 
-	// Только при первом Write() проверяем Content-Type
-	if !w.disabled && w.gzWriter != nil {
-		contentType := w.Header().Get("Content-Type")
-		if !isCompressible(contentType) {
-			w.DisableCompression()
-			return w.ResponseWriter.Write(b)
-		}
+	fmt.Println("use gzip")
+	return w.gzWriter.Write(b)
 
-		// Устанавливаем заголовки сжатия
-		if w.Header().Get("Content-Encoding") == "" {
-			w.Header().Del("Content-Length")
-			w.Header().Set("Content-Encoding", "gzip")
-		}
+}
+
+func (w *gzipWriter) WriteHeader(statusCode int) {
+	fmt.Println("type", w.Header().Get("Content-Type"))
+	if w.isCompressible {
+		return
 	}
 
-	return w.gzWriter.Write(b)
+	// Проверяем Content-Type
+	contentType := w.Header().Get("Content-Type")
+	fmt.Println("contentType", contentType)
+	if contentType == "" || !isCompressible(contentType) {
+		// Не сжимаем — просто отправляем оригинальный заголовок
+		w.ResponseWriter.WriteHeader(statusCode)
+		return
+	}
+	w.isCompressible = true
+	fmt.Println("WriteHeader", w.isCompressible)
+	// Устанавливаем заголовки сжатия
+	w.Header().Set("Content-Encoding", "gzip")
+	w.Header().Del("Content-Length")
+
+	w.ResponseWriter.WriteHeader(statusCode)
 }
 
 func isCompressible(contentType string) bool {
-	fmt.Println("contentType", contentType)
 	allowedTypes := []string{
 		"application/json",
 		"text/html",
@@ -50,19 +65,8 @@ func isCompressible(contentType string) bool {
 			break
 		}
 	}
-	fmt.Println("checkAllowedTypes", checkAllowedTypes)
 
 	return checkAllowedTypes
-}
-
-func (w *gzipWriter) Close() {
-	if w.gzWriter != nil {
-		w.gzWriter.Close()
-	}
-}
-
-func (w *gzipWriter) DisableCompression() {
-	w.disabled = true
 }
 
 func GzipMiddleware(next http.Handler) http.Handler {
@@ -76,26 +80,28 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			defer gz.Close()
 			r.Body = gz
 		}
+		next.ServeHTTP(w, r)
 
 		// проверяем ждет ли ответа в формате gzip
-		fmt.Println("Accept-Encoding", r.Header.Get("Accept-Encoding"))
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Создаём обёртку
-		gzWriter := gzip.NewWriter(w)
-		grw := &gzipWriter{
+		gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
+		if err != nil {
+			io.WriteString(w, err.Error())
+			return
+		}
+		defer gz.Close()
+
+		wrapped := &gzipWriter{
 			ResponseWriter: w,
-			gzWriter:       gzWriter,
-			disabled:       false,
+			gzWriter:       gz,
 		}
 
-		defer grw.Close()
-
 		// Передаём управление следующему обработчику
-		next.ServeHTTP(grw, r)
+		next.ServeHTTP(wrapped, r)
 
 	})
 }

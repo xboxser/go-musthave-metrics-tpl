@@ -228,7 +228,8 @@ func (h *serverHandler) main(res http.ResponseWriter, req *http.Request) {
 		</ul>
 	</body>
 	</html>`
-
+	res.Header().Set("Content-Type", "text/html")
+	res.WriteHeader(http.StatusOK)
 	tmpl, err := template.New("page").Parse(tpl)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)

@@ -25,6 +25,7 @@ func (w *gzipWriter) Write(b []byte) (int, error) {
 	}
 
 	fmt.Println("use gzip")
+
 	return w.gzWriter.Write(b)
 
 }
@@ -80,7 +81,6 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			defer gz.Close()
 			r.Body = gz
 		}
-		next.ServeHTTP(w, r)
 
 		// проверяем ждет ли ответа в формате gzip
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {

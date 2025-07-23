@@ -16,29 +16,23 @@ type gzipWriter struct {
 
 func (w *gzipWriter) Write(b []byte) (int, error) {
 	// w.Writer будет отвечать за gzip-сжатие, поэтому пишем в него
-	fmt.Println("isCompressible", w.isCompressible)
-	fmt.Println("type", w.Header().Get("Content-Type"))
 	if !w.isCompressible {
 		// Если тип не поддерживается — не сжимаем
-		fmt.Println("not use gzip")
 		return w.ResponseWriter.Write(b)
 	}
-
-	fmt.Println("use gzip")
 
 	return w.gzWriter.Write(b)
 
 }
 
 func (w *gzipWriter) WriteHeader(statusCode int) {
-	fmt.Println("type", w.Header().Get("Content-Type"))
+	// Прверяем определяли ли ранее значение
 	if w.isCompressible {
 		return
 	}
 
 	// Проверяем Content-Type
 	contentType := w.Header().Get("Content-Type")
-	fmt.Println("contentType", contentType)
 	if contentType == "" || !isCompressible(contentType) {
 		// Не сжимаем — просто отправляем оригинальный заголовок
 		w.ResponseWriter.WriteHeader(statusCode)
@@ -46,7 +40,7 @@ func (w *gzipWriter) WriteHeader(statusCode int) {
 	}
 	w.isCompressible = true
 	fmt.Println("WriteHeader", w.isCompressible)
-	// Устанавливаем заголовки сжатия
+	// Устанавливаем заголовки для сжатия
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Del("Content-Length")
 
@@ -72,6 +66,7 @@ func isCompressible(contentType string) bool {
 
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Проверяем формат полученого запроса, если gzip то разархивируем его
 		if strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {
 			gz, err := gzip.NewReader(r.Body)
 			if err != nil {
@@ -88,6 +83,8 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Запускаем сжатие ответа
+		// Внутри gzipWriter есть проверка какие форматы поддерживают сжатие
 		gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
 		if err != nil {
 			io.WriteString(w, err.Error())

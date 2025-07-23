@@ -36,6 +36,7 @@ func Run(service *service.ServerService) {
 	h := newServerHandler(service, congig)
 
 	r := chi.NewRouter()
+	r.Use(middleware.GzipMiddleware)
 	r.Get("/value/{type}/{name}", h.m.WithLogging(h.value))
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/", h.m.WithLogging(h.updateJSON))
@@ -227,7 +228,8 @@ func (h *serverHandler) main(res http.ResponseWriter, req *http.Request) {
 		</ul>
 	</body>
 	</html>`
-
+	res.Header().Set("Content-Type", "text/html")
+	res.WriteHeader(http.StatusOK)
 	tmpl, err := template.New("page").Parse(tpl)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)

@@ -24,30 +24,32 @@ type serverHandler struct {
 	service *service.ServerService
 	config  *configSever
 	m       *middleware.RequestMiddleware
+	file    *models.FileJSON
 }
 
 func newServerHandler(service *service.ServerService, config *configSever) *serverHandler {
+	file, err := models.NewFileJSON(config.FileStoragePath)
+	if err != nil {
+		panic(err)
+	}
 	return &serverHandler{
 		service: service,
 		config:  config,
 		m:       middleware.NewRequestMiddleware(),
+		file:    file,
 	}
 }
 
 func Run(service *service.ServerService) {
 	fmt.Println("Run server")
 
-	congig := newConfigServer()
-	h := newServerHandler(service, congig)
+	config := newConfigServer()
+	h := newServerHandler(service, config)
 
-	file, err := models.NewFileJSON(congig.FileStoragePath)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
+	defer h.file.Close()
 
-	if congig.Restore {
-		m, err := file.Read()
+	if config.Restore {
+		m, err := h.file.Read()
 		if err != nil {
 			fmt.Println("Не удалось прочитать файл", err)
 		} else {
@@ -56,12 +58,12 @@ func Run(service *service.ServerService) {
 
 	}
 
-	if congig.IntervalSave > 0 {
-		saveTicker := time.NewTicker(time.Duration(congig.IntervalSave) * time.Second)
+	if config.IntervalSave > 0 {
+		saveTicker := time.NewTicker(time.Duration(config.IntervalSave) * time.Second)
 		defer saveTicker.Stop()
 		go func() {
 			for range saveTicker.C {
-				_ = file.Save(h.service.GetModels())
+				_ = h.file.Save(h.service.GetModels())
 			}
 		}()
 	}
@@ -99,7 +101,7 @@ func Run(service *service.ServerService) {
 	<-stop
 	fmt.Println("Сервер остановлен")
 	// записываем данные в файл
-	file.Save(h.service.GetModels())
+	h.file.Save(h.service.GetModels())
 	// Пытаемся корректно завершить сервер
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

@@ -40,7 +40,7 @@ func Run(service *service.ServerService) {
 	congig := newConfigServer()
 	h := newServerHandler(service, congig)
 
-	file, err := models.NewFileJson(congig.FileStoragePath)
+	file, err := models.NewFileJSON(congig.FileStoragePath)
 	if err != nil {
 		panic(err)
 	}
@@ -49,9 +49,11 @@ func Run(service *service.ServerService) {
 	if congig.Restore {
 		m, err := file.Read()
 		if err != nil {
-			fmt.Println("Не удалось прочитать файл")
+			fmt.Println("Не удалось прочитать файл", err)
+		} else {
+			h.service.SetModel(m)
 		}
-		h.service.SetModel(m)
+
 	}
 
 	if congig.IntervalSave > 0 {

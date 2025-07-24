@@ -6,26 +6,27 @@ import (
 	"os"
 )
 
-type FileJson struct {
+type FileJSON struct {
 	file    *os.File
 	encoder *json.Encoder
 	decoder *json.Decoder
 }
 
-func NewFileJson(fileName string) (*FileJson, error) {
+func NewFileJSON(fileName string) (*FileJSON, error) {
+	fmt.Println("fileName", fileName)
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
 	}
 
-	return &FileJson{
+	return &FileJSON{
 		file:    file,
 		encoder: json.NewEncoder(file),
 		decoder: json.NewDecoder(file),
 	}, nil
 }
 
-func (f *FileJson) Save(m []Metrics) error {
+func (f *FileJSON) Save(m []Metrics) error {
 	if err := f.file.Truncate(0); err != nil {
 		return err
 	}
@@ -44,8 +45,17 @@ func (f *FileJson) Save(m []Metrics) error {
 	return nil
 }
 
-func (f *FileJson) Read() (*[]Metrics, error) {
+func (f *FileJSON) Read() (*[]Metrics, error) {
 	m := &[]Metrics{}
+	// Проверяем размер файла
+	stat, err := f.file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if stat.Size() == 0 {
+		return m, nil
+	}
+
 	if err := f.decoder.Decode(&m); err != nil {
 		return nil, err
 	}
@@ -53,6 +63,6 @@ func (f *FileJson) Read() (*[]Metrics, error) {
 	return m, nil
 }
 
-func (f *FileJson) Close() error {
+func (f *FileJSON) Close() error {
 	return f.file.Close()
 }

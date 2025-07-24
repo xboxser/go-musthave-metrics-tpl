@@ -77,6 +77,7 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			r.Body = gz
 		}
 
+		fmt.Println("Accept-Encoding", r.Header.Get("Accept-Encoding"))
 		// проверяем ждет ли ответа в формате gzip
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(w, r)

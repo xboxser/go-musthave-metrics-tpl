@@ -104,3 +104,35 @@ func (s *ServerService) GetAll() map[string]string {
 
 	return res
 }
+
+func (s *ServerService) GetModels() []models.Metrics {
+	metricks := []models.Metrics{}
+	guuge, counter := s.model.GetAll()
+
+	for id, val := range guuge {
+		metricks = append(metricks, models.Metrics{
+			ID:    id,
+			MType: models.Gauge,
+			Value: &val,
+		})
+	}
+
+	for id, val := range counter {
+		metricks = append(metricks, models.Metrics{
+			ID:    id,
+			MType: models.Counter,
+			Delta: &val,
+		})
+	}
+	return metricks
+
+}
+
+func (s *ServerService) SetModel(m *[]models.Metrics) {
+	if len(*m) < 1 {
+		return
+	}
+	for _, v := range *m {
+		s.UpdateJSON(&v)
+	}
+}

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -9,8 +10,12 @@ import (
 	models "metrics/internal/model"
 	"metrics/internal/service"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -35,6 +40,30 @@ func Run(service *service.ServerService) {
 	congig := newConfigServer()
 	h := newServerHandler(service, congig)
 
+	file, err := models.NewFileJson(congig.FileStoragePath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	if congig.Restore {
+		m, err := file.Read()
+		if err != nil {
+			fmt.Println("Не удалось прочитать файл")
+		}
+		h.service.SetModel(m)
+	}
+
+	if congig.IntervalSave > 0 {
+		saveTicker := time.NewTicker(time.Duration(congig.IntervalSave) * time.Second)
+		defer saveTicker.Stop()
+		go func() {
+			for range saveTicker.C {
+				_ = file.Save(h.service.GetModels())
+			}
+		}()
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.GzipMiddleware)
 	r.Get("/value/{type}/{name}", h.m.WithLogging(h.value))
@@ -47,9 +76,34 @@ func Run(service *service.ServerService) {
 	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
 	r.Get("/", h.m.WithLogging(h.main))
 
-	err := http.ListenAndServe(h.config.PortSever, r)
-	if err != nil {
-		panic(err)
+	server := &http.Server{
+		Addr:    h.config.PortSever,
+		Handler: r,
+	}
+
+	// Канал для перехвата сигналов
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	// Запускаем сервер в отдельной горутине
+	go func() {
+		fmt.Printf("Starting server on %s\n", h.config.PortSever)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			panic(err)
+		}
+	}()
+
+	// Ждём сигнал остановки
+	<-stop
+	fmt.Println("Сервер остановлен")
+	// записываем данные в файл
+	file.Save(h.service.GetModels())
+	// Пытаемся корректно завершить сервер
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		fmt.Printf("Ошибка при завершении сервера: %v\n", err)
 	}
 }
 

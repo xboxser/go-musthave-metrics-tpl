@@ -35,6 +35,7 @@ func (f *FileJSON) Save(m []models.Metrics) error {
 	if _, err := f.file.Seek(0, 0); err != nil {
 		return err
 	}
+	f.encoder = json.NewEncoder(f.file)
 	f.encoder.SetIndent("", "  ") // Форматирование с отступами
 	err := f.encoder.Encode(m)
 	if err != nil {
@@ -57,6 +58,9 @@ func (f *FileJSON) Read() (*[]models.Metrics, error) {
 		return m, nil
 	}
 
+	// Пересоздаем decoder
+	f.decoder = json.NewDecoder(f.file)
+
 	if err := f.decoder.Decode(&m); err != nil {
 		return nil, err
 	}
@@ -64,6 +68,8 @@ func (f *FileJSON) Read() (*[]models.Metrics, error) {
 	return m, nil
 }
 
+// Close implements the io.Closer interface to close the JSON file.
+// It returns an error if the operation fails.
 func (f *FileJSON) Close() error {
 	return f.file.Close()
 }

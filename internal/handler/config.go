@@ -7,23 +7,23 @@ import (
 	"github.com/caarlos0/env"
 )
 
-type configSever struct {
+type configServer struct {
 	PortSever       string `env:"ADDRESS"`
 	IntervalSave    int    `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	Restore         bool   `env:"FILE_STORAGE_PATH"`
+	Restore         bool   `env:"RESTORE"`
 }
 
-func newConfigServer() *configSever {
-	var cfg configSever
+func newConfigServer() *configServer {
+	var cfg configServer
 	_ = env.Parse(&cfg)
 
-	agentFlags := flag.NewFlagSet("agent", flag.ExitOnError)
-	port := agentFlags.String("a", "localhost:8080", "port server")
-	intervalSave := agentFlags.Int("i", 300, "time interval save")
-	fileStoragePath := agentFlags.String("f", "jsonBD.json", "time interval save")
-	restore := agentFlags.Bool("r", true, "time interval save")
-	agentFlags.Parse(os.Args[1:])
+	serverFlags := flag.NewFlagSet("server", flag.ExitOnError)
+	port := serverFlags.String("a", "localhost:8080", "port server")
+	intervalSave := serverFlags.Int("i", 300, "time interval save")
+	fileStoragePath := serverFlags.String("f", "jsonBD.json", "time interval save")
+	restore := serverFlags.Bool("r", true, "read file to start server")
+	serverFlags.Parse(os.Args[1:])
 	if cfg.PortSever == "" {
 		cfg.PortSever = *port
 	}

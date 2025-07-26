@@ -1,8 +1,9 @@
-package models
+package storage
 
 import (
 	"encoding/json"
 	"fmt"
+	models "metrics/internal/model"
 	"os"
 )
 
@@ -26,7 +27,7 @@ func NewFileJSON(fileName string) (*FileJSON, error) {
 	}, nil
 }
 
-func (f *FileJSON) Save(m []Metrics) error {
+func (f *FileJSON) Save(m []models.Metrics) error {
 	if err := f.file.Truncate(0); err != nil {
 		return err
 	}
@@ -45,8 +46,8 @@ func (f *FileJSON) Save(m []Metrics) error {
 	return nil
 }
 
-func (f *FileJSON) Read() (*[]Metrics, error) {
-	m := &[]Metrics{}
+func (f *FileJSON) Read() (*[]models.Metrics, error) {
+	m := &[]models.Metrics{}
 	// Проверяем размер файла
 	stat, err := f.file.Stat()
 	if err != nil {

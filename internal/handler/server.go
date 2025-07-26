@@ -9,6 +9,7 @@ import (
 	"metrics/internal/handler/middleware"
 	models "metrics/internal/model"
 	"metrics/internal/service"
+	"metrics/internal/storage"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,30 +23,33 @@ import (
 
 type serverHandler struct {
 	service *service.ServerService
-	config  *configSever
+	config  *configServer
 	m       *middleware.RequestMiddleware
-	file    *models.FileJSON
+	file    *storage.FileJSON
 }
 
-func newServerHandler(service *service.ServerService, config *configSever) *serverHandler {
-	file, err := models.NewFileJSON(config.FileStoragePath)
+func newServerHandler(service *service.ServerService, config *configServer) (*serverHandler, error) {
+	file, err := storage.NewFileJSON(config.FileStoragePath)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return &serverHandler{
 		service: service,
 		config:  config,
 		m:       middleware.NewRequestMiddleware(),
 		file:    file,
-	}
+	}, nil
 }
 
 func Run(service *service.ServerService) {
 	fmt.Println("Run server")
 
 	config := newConfigServer()
-	h := newServerHandler(service, config)
+	h, err := newServerHandler(service, config)
 
+	if err != nil {
+		panic(err)
+	}
 	defer h.file.Close()
 
 	if config.Restore {

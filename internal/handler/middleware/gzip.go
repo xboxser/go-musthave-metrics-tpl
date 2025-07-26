@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"compress/gzip"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -39,7 +38,6 @@ func (w *gzipWriter) WriteHeader(statusCode int) {
 		return
 	}
 	w.isCompressible = true
-	fmt.Println("WriteHeader", w.isCompressible)
 	// Устанавливаем заголовки для сжатия
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Del("Content-Length")

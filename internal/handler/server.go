@@ -2,38 +2,75 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"metrics/internal/handler/middleware"
 	models "metrics/internal/model"
 	"metrics/internal/service"
+	"metrics/internal/storage"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type serverHandler struct {
 	service *service.ServerService
-	config  *configSever
+	config  *configServer
 	m       *middleware.RequestMiddleware
+	file    *storage.FileJSON
 }
 
-func newServerHandler(service *service.ServerService, config *configSever) *serverHandler {
+func newServerHandler(service *service.ServerService, config *configServer) (*serverHandler, error) {
+	file, err := storage.NewFileJSON(config.FileStoragePath)
+	if err != nil {
+		return nil, err
+	}
 	return &serverHandler{
 		service: service,
 		config:  config,
 		m:       middleware.NewRequestMiddleware(),
-	}
+		file:    file,
+	}, nil
 }
 
 func Run(service *service.ServerService) {
 	fmt.Println("Run server")
 
-	congig := newConfigServer()
-	h := newServerHandler(service, congig)
+	config := newConfigServer()
+	h, err := newServerHandler(service, config)
+
+	if err != nil {
+		panic(err)
+	}
+	defer h.file.Close()
+
+	if config.Restore {
+		m, err := h.file.Read()
+		if err != nil {
+			fmt.Println("Не удалось прочитать файл", err)
+		} else {
+			h.service.SetModel(m)
+		}
+
+	}
+
+	if config.IntervalSave > 0 {
+		saveTicker := time.NewTicker(time.Duration(config.IntervalSave) * time.Second)
+		defer saveTicker.Stop()
+		go func() {
+			for range saveTicker.C {
+				_ = h.file.Save(h.service.GetModels())
+			}
+		}()
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.GzipMiddleware)
@@ -47,9 +84,34 @@ func Run(service *service.ServerService) {
 	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
 	r.Get("/", h.m.WithLogging(h.main))
 
-	err := http.ListenAndServe(h.config.PortSever, r)
-	if err != nil {
-		panic(err)
+	server := &http.Server{
+		Addr:    h.config.PortSever,
+		Handler: r,
+	}
+
+	// Канал для перехвата сигналов
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	// Запускаем сервер в отдельной горутине
+	go func() {
+		fmt.Printf("Starting server on %s\n", h.config.PortSever)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			panic(err)
+		}
+	}()
+
+	// Ждём сигнал остановки
+	<-stop
+	fmt.Println("Сервер остановлен")
+	// записываем данные в файл
+	h.file.Save(h.service.GetModels())
+	// Пытаемся корректно завершить сервер
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		fmt.Printf("Ошибка при завершении сервера: %v\n", err)
 	}
 }
 

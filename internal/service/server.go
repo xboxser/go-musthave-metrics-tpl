@@ -95,7 +95,7 @@ func (s *ServerService) GetAll() map[string]string {
 
 	res := map[string]string{}
 	for name, val := range guuge {
-		res["guuge "+name] = fmt.Sprintf("%g", val)
+		res["gauge "+name] = fmt.Sprintf("%g", val)
 	}
 
 	for name, val := range counter {
@@ -103,4 +103,36 @@ func (s *ServerService) GetAll() map[string]string {
 	}
 
 	return res
+}
+
+func (s *ServerService) GetModels() []models.Metrics {
+	metrics := []models.Metrics{}
+	gauge, counter := s.model.GetAll()
+
+	for id, val := range gauge {
+		metrics = append(metrics, models.Metrics{
+			ID:    id,
+			MType: models.Gauge,
+			Value: &val,
+		})
+	}
+
+	for id, val := range counter {
+		metrics = append(metrics, models.Metrics{
+			ID:    id,
+			MType: models.Counter,
+			Delta: &val,
+		})
+	}
+	return metrics
+
+}
+
+func (s *ServerService) SetModel(m []models.Metrics) {
+	if len(m) < 1 {
+		return
+	}
+	for _, v := range m {
+		s.UpdateJSON(&v)
+	}
 }

@@ -7,19 +7,37 @@ import (
 	"github.com/caarlos0/env"
 )
 
-type configSever struct {
-	PortSever string `env:"ADDRESS"`
+type configServer struct {
+	Address       string `env:"ADDRESS"`
+	IntervalSave    int    `env:"STORE_INTERVAL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	Restore         bool   `env:"RESTORE"`
 }
 
-func newConfigServer() *configSever {
-	var cfg configSever
-	err := env.Parse(&cfg)
+func newConfigServer() *configServer {
+	var cfg configServer
+	_ = env.Parse(&cfg)
 
-	if err != nil || cfg.PortSever == "" {
-		agentFlags := flag.NewFlagSet("agent", flag.ExitOnError)
-		port := agentFlags.String("a", "localhost:8080", "port server")
-		agentFlags.Parse(os.Args[1:])
-		cfg.PortSever = *port
+	serverFlags := flag.NewFlagSet("server", flag.ExitOnError)
+	address := serverFlags.String("a", "localhost:8080", "port server")
+	intervalSave := serverFlags.Int("i", 300, "time interval save")
+	fileStoragePath := serverFlags.String("f", "jsonBD.json", "the path to the file to save the data")
+	restore := serverFlags.Bool("r", true, "read file to start server")
+	serverFlags.Parse(os.Args[1:])
+	if cfg.Address == "" {
+		cfg.Address = *address
+	}
+
+	if cfg.IntervalSave == 0 {
+		cfg.IntervalSave = *intervalSave
+	}
+
+	if cfg.FileStoragePath == "" {
+		cfg.FileStoragePath = *fileStoragePath
+	}
+
+	if !cfg.Restore {
+		cfg.Restore = *restore
 	}
 
 	return &cfg

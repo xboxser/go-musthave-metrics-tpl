@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/json"
-	"fmt"
 	models "metrics/internal/model"
 	"os"
 )
@@ -14,15 +13,17 @@ type FileJSON struct {
 }
 
 func NewFileJSON(fileName string) (*FileJSON, error) {
-	fmt.Println("fileName", fileName)
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
 	}
 
+	encoder := json.NewEncoder(file)
+    encoder.SetIndent("", "  ") // Настроим один раз
+
 	return &FileJSON{
 		file:    file,
-		encoder: json.NewEncoder(file),
+		encoder: encoder,
 		decoder: json.NewDecoder(file),
 	}, nil
 }
@@ -35,15 +36,12 @@ func (f *FileJSON) Save(m []models.Metrics) error {
 	if _, err := f.file.Seek(0, 0); err != nil {
 		return err
 	}
-	f.encoder = json.NewEncoder(f.file)
-	f.encoder.SetIndent("", "  ") // Форматирование с отступами
+	
 	err := f.encoder.Encode(m)
 	if err != nil {
-		fmt.Printf("Ошибка при записи в файл: %v\n", err)
 		return err
 	}
 
-	fmt.Println("Данные успешно сохранены")
 	return nil
 }
 
@@ -68,8 +66,6 @@ func (f *FileJSON) Read() (*[]models.Metrics, error) {
 	return m, nil
 }
 
-// Close implements the io.Closer interface to close the JSON file.
-// It returns an error if the operation fails.
 func (f *FileJSON) Close() error {
 	return f.file.Close()
 }

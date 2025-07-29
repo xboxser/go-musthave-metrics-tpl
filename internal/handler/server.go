@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"html/template"
+	"log"
 	"metrics/internal/handler/middleware"
 	models "metrics/internal/model"
 	"metrics/internal/service"
@@ -28,36 +28,40 @@ type serverHandler struct {
 	file    *storage.FileJSON
 }
 
-func newServerHandler(service *service.ServerService, config *configServer) (*serverHandler, error) {
-	file, err := storage.NewFileJSON(config.FileStoragePath)
-	if err != nil {
-		return nil, err
-	}
+func newServerHandler(config *configServer) (*serverHandler, error) {
 	return &serverHandler{
-		service: service,
 		config:  config,
 		m:       middleware.NewRequestMiddleware(),
-		file:    file,
 	}, nil
 }
 
-func Run(service *service.ServerService) {
-	fmt.Println("Run server")
 
+
+func Run(service *service.ServerService) {
 	config := newConfigServer()
-	h, err := newServerHandler(service, config)
+	h, err := newServerHandler(config)
 
 	if err != nil {
 		panic(err)
 	}
+
+	h.addService(service)
+	
+	file, err := storage.NewFileJSON(config.FileStoragePath)
+	if err != nil {
+		panic(err)
+	}
+	h.addFile(file)
+
+
 	defer h.file.Close()
 
 	if config.Restore {
 		m, err := h.file.Read()
 		if err != nil {
-			fmt.Println("Не удалось прочитать файл", err)
+			log.Println("Не удалось прочитать файл", err)
 		} else {
-			h.service.SetModel(m)
+			h.service.SetModel(*m)
 		}
 
 	}
@@ -67,7 +71,10 @@ func Run(service *service.ServerService) {
 		defer saveTicker.Stop()
 		go func() {
 			for range saveTicker.C {
-				_ = h.file.Save(h.service.GetModels())
+				err = h.file.Save(h.service.GetModels())
+				if err != nil {
+					log.Printf("Ошибка при записи в файл: %v\n", err)
+				}
 			}
 		}()
 	}
@@ -85,7 +92,7 @@ func Run(service *service.ServerService) {
 	r.Get("/", h.m.WithLogging(h.main))
 
 	server := &http.Server{
-		Addr:    h.config.PortSever,
+		Addr:    h.config.Address,
 		Handler: r,
 	}
 
@@ -95,7 +102,6 @@ func Run(service *service.ServerService) {
 
 	// Запускаем сервер в отдельной горутине
 	go func() {
-		fmt.Printf("Starting server on %s\n", h.config.PortSever)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			panic(err)
 		}
@@ -103,7 +109,6 @@ func Run(service *service.ServerService) {
 
 	// Ждём сигнал остановки
 	<-stop
-	fmt.Println("Сервер остановлен")
 	// записываем данные в файл
 	h.file.Save(h.service.GetModels())
 	// Пытаемся корректно завершить сервер
@@ -111,9 +116,22 @@ func Run(service *service.ServerService) {
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		fmt.Printf("Ошибка при завершении сервера: %v\n", err)
+		log.Printf("Ошибка при завершении сервера: %v\n", err)
 	}
 }
+
+func (h *serverHandler) addService(service *service.ServerService) {
+	h.service = service
+}
+func (h *serverHandler) addFile( file *storage.FileJSON) {
+	h.file = file
+}
+
+func (h *serverHandler) addService(service *service.ServerService,) {
+	h.service = service
+}
+
+
 
 func getParamsURL(path string) []string {
 	params := strings.Split(path, "/")
@@ -131,7 +149,7 @@ func validateTypeMetrics(typeMode string) bool {
 	return typeMode == models.Counter || typeMode == models.Gauge
 }
 
-func valiteValueMetrics(value string) bool {
+func validateValueMetrics(value string) bool {
 	_, err := strconv.ParseFloat(value, 64)
 	return err == nil
 }
@@ -148,7 +166,7 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 	_, err := buf.ReadFrom(req.Body)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
-		fmt.Println("error read  body", err)
+		log.Println("error read  body", err)
 		return
 	}
 	var metrics models.Metrics
@@ -156,7 +174,7 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 	// десериализуем JSON в Visitor
 	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
-		fmt.Println("error read  json", err)
+		log.Println("error read  json", err)
 		return
 	}
 
@@ -165,7 +183,6 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Println(metrics)
 	err = h.service.UpdateJSON(&metrics)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -197,7 +214,7 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !valiteValueMetrics(val) {
+	if !validateValueMetrics(val) {
 		http.Error(res, "incorrect value", http.StatusBadRequest)
 		return
 	}

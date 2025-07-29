@@ -8,7 +8,7 @@ import (
 )
 
 type configServer struct {
-	PortSever       string `env:"ADDRESS"`
+	Address       string `env:"ADDRESS"`
 	IntervalSave    int    `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	Restore         bool   `env:"RESTORE"`
@@ -19,13 +19,13 @@ func newConfigServer() *configServer {
 	_ = env.Parse(&cfg)
 
 	serverFlags := flag.NewFlagSet("server", flag.ExitOnError)
-	port := serverFlags.String("a", "localhost:8080", "port server")
+	address := serverFlags.String("a", "localhost:8080", "port server")
 	intervalSave := serverFlags.Int("i", 300, "time interval save")
-	fileStoragePath := serverFlags.String("f", "jsonBD.json", "time interval save")
+	fileStoragePath := serverFlags.String("f", "jsonBD.json", "the path to the file to save the data")
 	restore := serverFlags.Bool("r", true, "read file to start server")
 	serverFlags.Parse(os.Args[1:])
-	if cfg.PortSever == "" {
-		cfg.PortSever = *port
+	if cfg.Address == "" {
+		cfg.Address = *address
 	}
 
 	if cfg.IntervalSave == 0 {

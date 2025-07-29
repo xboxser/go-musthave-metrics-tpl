@@ -1,7 +1,5 @@
 package models
 
-import "fmt"
-
 const (
 	Counter = "counter"
 	Gauge   = "gauge"
@@ -28,7 +26,6 @@ type Storage interface {
 }
 
 func (m *MemStorage) UpdateCounter(name string, val int64) {
-	fmt.Println("update counter", name, m.Counter[name], val)
 	m.Counter[name] += val
 }
 

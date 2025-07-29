@@ -43,7 +43,7 @@ func (s *Sender) SendRequest(json []byte) error {
 	if err := gz.Close(); err != nil {
 		return fmt.Errorf("ошибка закрытия gzip writer: %w", err)
 	}
-	fmt.Println(&compressedBuf)
+
 	url := fmt.Sprintf("http://%s/update/", *s.baseURL)
 	req, err := http.NewRequest(http.MethodPost, url, &compressedBuf)
 

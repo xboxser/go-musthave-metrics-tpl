@@ -127,11 +127,6 @@ func (h *serverHandler) addFile( file *storage.FileJSON) {
 	h.file = file
 }
 
-func (h *serverHandler) addService(service *service.ServerService,) {
-	h.service = service
-}
-
-
 
 func getParamsURL(path string) []string {
 	params := strings.Split(path, "/")

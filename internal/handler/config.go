@@ -23,7 +23,7 @@ func newConfigServer() *configServer {
 	address := serverFlags.String("a", "localhost:8080", "port server")
 	intervalSave := serverFlags.Int("i", 300, "time interval save")
 	fileStoragePath := serverFlags.String("f", "jsonBD.json", "the path to the file to save the data")
-	dateBaseDSN := serverFlags.String("d", "localhost:5432", "host db PostgreSQL")
+	dateBaseDSN := serverFlags.String("d", "postgres://metrics:qwerty!23@localhost:5432/metrics_db?sslmode=disable", "host db PostgreSQL")
 	restore := serverFlags.Bool("r", true, "read file to start server")
 	serverFlags.Parse(os.Args[1:])
 	if cfg.Address == "" {

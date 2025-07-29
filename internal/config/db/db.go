@@ -11,9 +11,7 @@ type DB struct {
 	conn *pgx.Conn
 }
 
-func NewDB (ctx context.Context, host string) (*DB, error) {
-	connStr := "postgres://metrics:qwerty!23@"+host+"/metrics_db?sslmode=disable"
-
+func NewDB (ctx context.Context, connStr string) (*DB, error) {
 	conn, err := pgx.Connect(ctx, connStr)
 	if err != nil {
 		return nil, err

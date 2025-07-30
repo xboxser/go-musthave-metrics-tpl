@@ -47,5 +47,6 @@ func newConfigServer() *configServer {
 		cfg.Restore = *restore
 	}
 	log.Println("cfg.DateBaseDSN", cfg.DateBaseDSN )
+	log.Println("dateBaseDSN", dateBaseDSN )
 	return &cfg
 }

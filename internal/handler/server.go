@@ -139,6 +139,7 @@ func (h *serverHandler) addFile( file *storage.FileJSON) {
 }
 
 func (h *serverHandler) connectDB(ctx context.Context) error{
+	if h.config.DateBaseDSN == "" {return  nil}
 	db, err := db.NewDB(ctx, h.config.DateBaseDSN)
 	if err != nil {
 		return err

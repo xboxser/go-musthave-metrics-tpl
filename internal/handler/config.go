@@ -2,6 +2,7 @@ package handler
 
 import (
 	"flag"
+	"log"
 	"os"
 
 	"github.com/caarlos0/env"
@@ -45,6 +46,6 @@ func newConfigServer() *configServer {
 	if !cfg.Restore {
 		cfg.Restore = *restore
 	}
-
+	log.Println("cfg.DateBaseDSN", cfg.DateBaseDSN )
 	return &cfg
 }

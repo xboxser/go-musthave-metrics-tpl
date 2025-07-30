@@ -2,6 +2,7 @@ package handler
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 
@@ -48,5 +49,7 @@ func newConfigServer() *configServer {
 	}
 	log.Println("cfg.DateBaseDSN", cfg.DateBaseDSN )
 	log.Println("dateBaseDSN", *dateBaseDSN )
+	fmt.Println(cfg.DateBaseDSN)
+	fmt.Println(*dateBaseDSN )
 	return &cfg
 }

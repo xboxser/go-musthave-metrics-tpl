@@ -27,17 +27,15 @@ type serverHandler struct {
 	config  *configServer
 	m       *middleware.RequestMiddleware
 	file    *storage.FileJSON
-	db *db.DB
+	db      *db.DB
 }
 
 func newServerHandler(config *configServer) (*serverHandler, error) {
 	return &serverHandler{
-		config:  config,
-		m:       middleware.NewRequestMiddleware(),
+		config: config,
+		m:      middleware.NewRequestMiddleware(),
 	}, nil
 }
-
-
 
 func Run(service *service.ServerService) {
 	config := newConfigServer()
@@ -48,41 +46,28 @@ func Run(service *service.ServerService) {
 	}
 
 	h.addService(service)
-	
+
 	file, err := storage.NewFileJSON(config.FileStoragePath)
 	if err != nil {
 		panic(err)
 	}
 	h.addFile(file)
 
-
 	defer h.file.Close()
 
-	if config.Restore {
-		m, err := h.file.Read()
-		if err != nil {
-			log.Println("Не удалось прочитать файл", err)
-		} else {
-			h.service.SetModel(*m)
-		}
-
-	}
-
+	h.read()
 	if config.IntervalSave > 0 {
 		saveTicker := time.NewTicker(time.Duration(config.IntervalSave) * time.Second)
 		defer saveTicker.Stop()
 		go func() {
 			for range saveTicker.C {
-				err = h.file.Save(h.service.GetModels())
-				if err != nil {
-					log.Printf("Ошибка при записи в файл: %v\n", err)
-				}
+				h.save()
 			}
 		}()
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-    defer cancel()
-	err = h.connectDB(ctx) 
+	defer cancel()
+	err = h.connectDB(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -134,12 +119,14 @@ func (h *serverHandler) addService(service *service.ServerService) {
 	h.service = service
 }
 
-func (h *serverHandler) addFile( file *storage.FileJSON) {
+func (h *serverHandler) addFile(file *storage.FileJSON) {
 	h.file = file
 }
 
-func (h *serverHandler) connectDB(ctx context.Context) error{
-	if h.config.DateBaseDSN == "" {return  nil}
+func (h *serverHandler) connectDB(ctx context.Context) error {
+	if h.config.DateBaseDSN == "" {
+		return nil
+	}
 	db, err := db.NewDB(ctx, h.config.DateBaseDSN)
 	if err != nil {
 		return err
@@ -167,6 +154,45 @@ func validateTypeMetrics(typeMode string) bool {
 func validateValueMetrics(value string) bool {
 	_, err := strconv.ParseFloat(value, 64)
 	return err == nil
+}
+
+func (h *serverHandler) save() {
+	if h.db.Ping() {
+		err := h.db.SaveAll(h.service.GetModels())
+		if err != nil {
+			log.Printf("Ошибка при записи в файл: %v\n", err)
+		} else {
+			return
+		}
+	}
+	err := h.file.Save(h.service.GetModels())
+	if err != nil {
+		log.Printf("Ошибка при записи в файл: %v\n", err)
+	}
+}
+
+func (h *serverHandler) read() {
+	if h.config.Restore {
+		return
+	}
+
+	if h.db.Ping() {
+		m, err := h.db.ReadAll()
+		if err != nil {
+			log.Println("Не удалось получить информацию из БД", err)
+		} else {
+			h.service.SetModel(m)
+			// выходим, т.к. уже прочитали все данные
+			return
+		}
+	}
+
+	m, err := h.file.Read()
+	if err != nil {
+		log.Println("Не удалось прочитать файл", err)
+	} else {
+		h.service.SetModel(*m)
+	}
 }
 
 func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
@@ -241,7 +267,7 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 
 }
 
-func (h *serverHandler) ping (res http.ResponseWriter, req *http.Request) {
+func (h *serverHandler) ping(res http.ResponseWriter, req *http.Request) {
 	if h.db.Ping() {
 		res.WriteHeader(http.StatusOK)
 	} else {

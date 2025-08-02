@@ -55,6 +55,13 @@ func Run(service *service.ServerService) {
 
 	defer h.file.Close()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	err = h.connectDB(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	h.read()
 	if config.IntervalSave > 0 {
 		saveTicker := time.NewTicker(time.Duration(config.IntervalSave) * time.Second)
@@ -64,12 +71,6 @@ func Run(service *service.ServerService) {
 				h.save()
 			}
 		}()
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	err = h.connectDB(ctx)
-	if err != nil {
-		panic(err)
 	}
 
 	r := chi.NewRouter()
@@ -172,7 +173,7 @@ func (h *serverHandler) save() {
 }
 
 func (h *serverHandler) read() {
-	if h.config.Restore {
+	if !h.config.Restore {
 		return
 	}
 

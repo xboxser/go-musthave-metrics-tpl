@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"log"
+	"metrics/internal/config/db"
 	"metrics/internal/handler/middleware"
 	models "metrics/internal/model"
 	"metrics/internal/service"
@@ -26,6 +27,7 @@ type serverHandler struct {
 	config  *configServer
 	m       *middleware.RequestMiddleware
 	file    *storage.FileJSON
+	db *db.DB
 }
 
 func newServerHandler(config *configServer) (*serverHandler, error) {
@@ -78,6 +80,12 @@ func Run(service *service.ServerService) {
 			}
 		}()
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    defer cancel()
+	err = h.connectDB(ctx) 
+	if err != nil {
+		panic(err)
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.GzipMiddleware)
@@ -88,6 +96,8 @@ func Run(service *service.ServerService) {
 	r.Route("/value", func(r chi.Router) {
 		r.Post("/", h.m.WithLogging(h.valueJSON))
 	})
+
+	r.Get("/ping", h.m.WithLogging(h.ping))
 	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
 	r.Get("/", h.m.WithLogging(h.main))
 
@@ -112,10 +122,10 @@ func Run(service *service.ServerService) {
 	// записываем данные в файл
 	h.file.Save(h.service.GetModels())
 	// Пытаемся корректно завершить сервер
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctxStopServer, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(ctxStopServer); err != nil {
 		log.Printf("Ошибка при завершении сервера: %v\n", err)
 	}
 }
@@ -123,10 +133,20 @@ func Run(service *service.ServerService) {
 func (h *serverHandler) addService(service *service.ServerService) {
 	h.service = service
 }
+
 func (h *serverHandler) addFile( file *storage.FileJSON) {
 	h.file = file
 }
 
+func (h *serverHandler) connectDB(ctx context.Context) error{
+	if h.config.DateBaseDSN == "" {return  nil}
+	db, err := db.NewDB(ctx, h.config.DateBaseDSN)
+	if err != nil {
+		return err
+	}
+	h.db = db
+	return nil
+}
 
 func getParamsURL(path string) []string {
 	params := strings.Split(path, "/")
@@ -221,6 +241,14 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 
 }
 
+func (h *serverHandler) ping (res http.ResponseWriter, req *http.Request) {
+	if h.db.Ping() {
+		res.WriteHeader(http.StatusOK)
+	} else {
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
 func (h *serverHandler) valueJSON(res http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
@@ -294,7 +322,7 @@ func (h *serverHandler) main(res http.ResponseWriter, req *http.Request) {
 		<title>Metrics server</title>
 	</head>
 	<body>
-		<h1>List metricks:</h1>
+		<h1>List metrics:</h1>
 		<ul>
 			{{range $key, $value := .}}
 			<li><strong>{{$key}}:</strong> {{$value}}</li>

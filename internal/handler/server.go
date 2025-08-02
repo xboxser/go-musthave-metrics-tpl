@@ -157,7 +157,7 @@ func validateValueMetrics(value string) bool {
 }
 
 func (h *serverHandler) save() {
-	if h.db.Ping() {
+	if h.config.DateBaseDSN != "" && h.db.Ping() {
 		err := h.db.SaveAll(h.service.GetModels())
 		if err != nil {
 			log.Printf("Ошибка при записи в файл: %v\n", err)
@@ -176,7 +176,7 @@ func (h *serverHandler) read() {
 		return
 	}
 
-	if h.db.Ping() {
+	if h.config.DateBaseDSN != "" && h.db.Ping() {
 		m, err := h.db.ReadAll()
 		if err != nil {
 			log.Println("Не удалось получить информацию из БД", err)

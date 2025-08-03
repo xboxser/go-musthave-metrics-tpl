@@ -182,7 +182,7 @@ func (h *serverHandler) save() {
 }
 
 func (h *serverHandler) saveToDB() bool {
-	if h.config.DateBaseDSN != "" && h.db.Ping() {
+	if h.config.DateBaseDSN == "" || !h.db.Ping() {
 		return false
 	}
 	err := h.db.SaveAll(h.service.GetModels())

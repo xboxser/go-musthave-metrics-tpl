@@ -73,19 +73,7 @@ func Run(service *service.ServerService) {
 		}()
 	}
 
-	r := chi.NewRouter()
-	r.Use(middleware.GzipMiddleware)
-	r.Get("/value/{type}/{name}", h.m.WithLogging(h.value))
-	r.Route("/update", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.updateJSON))
-	})
-	r.Route("/value", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.valueJSON))
-	})
-
-	r.Get("/ping", h.m.WithLogging(h.ping))
-	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
-	r.Get("/", h.m.WithLogging(h.main))
+	r := h.registerRoutes()
 
 	server := &http.Server{
 		Addr:    h.config.Address,
@@ -122,6 +110,25 @@ func (h *serverHandler) addService(service *service.ServerService) {
 
 func (h *serverHandler) addFile(file *storage.FileJSON) {
 	h.file = file
+}
+
+// регистрируем роуты
+func (h *serverHandler) registerRoutes() *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(middleware.GzipMiddleware)
+	r.Route("/update", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.updateJSON))
+		r.Post("/{type}/{name}/{value}", h.m.WithLogging(h.update))
+	})
+	r.Route("/value", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.valueJSON))
+		r.Get("/{type}/{name}", h.m.WithLogging(h.value))
+	})
+
+	r.Get("/ping", h.m.WithLogging(h.ping))
+
+	r.Get("/", h.m.WithLogging(h.main))
+	return r
 }
 
 func (h *serverHandler) connectDB(ctx context.Context) error {
@@ -161,7 +168,7 @@ func (h *serverHandler) save() {
 	if h.config.DateBaseDSN != "" && h.db.Ping() {
 		err := h.db.SaveAll(h.service.GetModels())
 		if err != nil {
-			log.Printf("Ошибка при записи в файл: %v\n", err)
+			log.Printf("Ошибка при записи в БД: %v\n", err)
 		} else {
 			return
 		}

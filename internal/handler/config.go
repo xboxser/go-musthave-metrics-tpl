@@ -2,18 +2,16 @@ package handler
 
 import (
 	"flag"
-	"fmt"
-	"log"
 	"os"
 
 	"github.com/caarlos0/env"
 )
 
 type configServer struct {
-	Address       string `env:"ADDRESS"`
+	Address         string `env:"ADDRESS"`
 	IntervalSave    int    `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	DateBaseDSN string `env:"DATABASE_DSN"`
+	DateBaseDSN     string `env:"DATABASE_DSN"`
 	Restore         bool   `env:"RESTORE"`
 }
 
@@ -50,9 +48,5 @@ func newConfigServer() *configServer {
 	if !cfg.Restore {
 		cfg.Restore = *restore
 	}
-	log.Println("cfg.DateBaseDSN", cfg.DateBaseDSN )
-	log.Println("dateBaseDSN", *dateBaseDSN )
-	fmt.Println(cfg.DateBaseDSN)
-	fmt.Println(*dateBaseDSN )
 	return &cfg
 }

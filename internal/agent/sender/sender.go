@@ -44,7 +44,7 @@ func (s *Sender) SendRequest(json []byte) error {
 		return fmt.Errorf("ошибка закрытия gzip writer: %w", err)
 	}
 
-	url := fmt.Sprintf("http://%s/update/", *s.baseURL)
+	url := fmt.Sprintf("http://%s/updates/", *s.baseURL)
 	req, err := http.NewRequest(http.MethodPost, url, &compressedBuf)
 
 	if err != nil {

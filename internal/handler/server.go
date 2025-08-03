@@ -30,7 +30,8 @@ type serverHandler struct {
 	db      *db.DB
 }
 
-func newServerHandler(config *configServer) (*serverHandler, error) {
+func newServerHandler() (*serverHandler, error) {
+	config := newConfigServer()
 	return &serverHandler{
 		config: config,
 		m:      middleware.NewRequestMiddleware(),
@@ -38,8 +39,8 @@ func newServerHandler(config *configServer) (*serverHandler, error) {
 }
 
 func Run(service *service.ServerService) {
-	config := newConfigServer()
-	h, err := newServerHandler(config)
+
+	h, err := newServerHandler()
 
 	if err != nil {
 		panic(err)
@@ -47,7 +48,7 @@ func Run(service *service.ServerService) {
 
 	h.addService(service)
 
-	file, err := storage.NewFileJSON(config.FileStoragePath)
+	file, err := storage.NewFileJSON(h.config.FileStoragePath)
 	if err != nil {
 		panic(err)
 	}
@@ -63,8 +64,8 @@ func Run(service *service.ServerService) {
 	}
 
 	h.read()
-	if config.IntervalSave > 0 {
-		saveTicker := time.NewTicker(time.Duration(config.IntervalSave) * time.Second)
+	if h.config.IntervalSave > 0 {
+		saveTicker := time.NewTicker(time.Duration(h.config.IntervalSave) * time.Second)
 		defer saveTicker.Stop()
 		go func() {
 			for range saveTicker.C {
@@ -73,6 +74,11 @@ func Run(service *service.ServerService) {
 		}()
 	}
 
+	h.startServer()
+
+}
+
+func (h *serverHandler) startServer() error {
 	r := h.registerRoutes()
 
 	server := &http.Server{
@@ -101,7 +107,9 @@ func Run(service *service.ServerService) {
 
 	if err := server.Shutdown(ctxStopServer); err != nil {
 		log.Printf("Ошибка при завершении сервера: %v\n", err)
+		return err
 	}
+	return nil
 }
 
 func (h *serverHandler) addService(service *service.ServerService) {
@@ -164,15 +172,30 @@ func validateValueMetrics(value string) bool {
 	return err == nil
 }
 
+// сохраняем информацию по метрикам
+// Если не доступна БД, сохраняем в файл
 func (h *serverHandler) save() {
-	if h.config.DateBaseDSN != "" && h.db.Ping() {
-		err := h.db.SaveAll(h.service.GetModels())
-		if err != nil {
-			log.Printf("Ошибка при записи в БД: %v\n", err)
-		} else {
-			return
-		}
+	if h.saveToDB() {
+		return
 	}
+	h.saveToFile()
+}
+
+func (h *serverHandler) saveToDB() bool {
+	if h.config.DateBaseDSN != "" && h.db.Ping() {
+		return false
+	}
+	err := h.db.SaveAll(h.service.GetModels())
+	if err != nil {
+		log.Printf("Ошибка при записи в БД: %v\n", err)
+	} else {
+		return true
+	}
+
+	return false
+}
+
+func (h *serverHandler) saveToFile() {
 	err := h.file.Save(h.service.GetModels())
 	if err != nil {
 		log.Printf("Ошибка при записи в файл: %v\n", err)
@@ -184,23 +207,36 @@ func (h *serverHandler) read() {
 		return
 	}
 
-	if h.config.DateBaseDSN != "" && h.db.Ping() {
-		m, err := h.db.ReadAll()
-		if err != nil {
-			log.Println("Не удалось получить информацию из БД", err)
-		} else {
-			h.service.SetModel(m)
-			// выходим, т.к. уже прочитали все данные
-			return
-		}
+	if h.readFromDB() {
+		return
 	}
 
+	h.readFromFile()
+}
+
+func (h *serverHandler) readFromDB() bool {
+	if h.config.DateBaseDSN == "" || !h.db.Ping() {
+		return false
+	}
+
+	m, err := h.db.ReadAll()
+	if err != nil {
+		log.Println("Не удалось получить информацию из БД", err)
+		return false
+	}
+
+	h.service.SetModel(m)
+	return true
+}
+
+func (h *serverHandler) readFromFile() {
 	m, err := h.file.Read()
 	if err != nil {
 		log.Println("Не удалось прочитать файл", err)
-	} else {
-		h.service.SetModel(*m)
+		return
 	}
+
+	h.service.SetModel(*m)
 }
 
 func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {

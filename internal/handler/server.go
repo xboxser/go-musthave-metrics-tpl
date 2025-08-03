@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"metrics/internal/config/db"
@@ -128,6 +129,9 @@ func (h *serverHandler) registerRoutes() *chi.Mux {
 		r.Post("/", h.m.WithLogging(h.updateJSON))
 		r.Post("/{type}/{name}/{value}", h.m.WithLogging(h.update))
 	})
+	r.Route("/updates", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.updateBatchJSON))
+	})
 	r.Route("/value", func(r chi.Router) {
 		r.Post("/", h.m.WithLogging(h.valueJSON))
 		r.Get("/{type}/{name}", h.m.WithLogging(h.value))
@@ -238,6 +242,39 @@ func (h *serverHandler) readFromFile() {
 
 	h.service.SetModel(*m)
 }
+func (h *serverHandler) updateBatchJSON(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "application/json")
+	if req.Method != http.MethodPost {
+		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
+		return
+	}
+	// читаем тело запроса
+	var buf bytes.Buffer
+	_, err := buf.ReadFrom(req.Body)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		log.Println("error read  body", err)
+		return
+	}
+
+	var metrics []models.Metrics
+	// десериализуем JSON в Visitor
+	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		log.Println("error read  json", err)
+		return
+	}
+	fmt.Println("metrics", metrics)
+
+	for _, metric := range metrics {
+		err := h.addMetrics(metric)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	res.WriteHeader(http.StatusOK)
+}
 
 func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
@@ -263,14 +300,10 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !validateTypeMetrics(metrics.MType) {
-		http.Error(res, "incorrect metric type", http.StatusBadRequest)
-		return
-	}
-
-	err = h.service.UpdateJSON(&metrics)
+	err = h.addMetrics(metrics)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	resp, err := json.Marshal(metrics)
@@ -281,6 +314,19 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 
 	res.WriteHeader(http.StatusOK)
 	res.Write(resp)
+}
+
+func (h *serverHandler) addMetrics(metrics models.Metrics) error {
+	if !validateTypeMetrics(metrics.MType) {
+		return fmt.Errorf("incorrect metric type")
+	}
+
+	err := h.service.UpdateJSON(&metrics)
+	fmt.Println("err", err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {

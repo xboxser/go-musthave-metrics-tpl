@@ -27,79 +27,59 @@ type serverHandler struct {
 	config  *configServer
 	m       *middleware.RequestMiddleware
 	file    *storage.FileJSON
-	db *db.DB
+	db      *db.DB
 }
 
-func newServerHandler(config *configServer) (*serverHandler, error) {
+func newServerHandler() (*serverHandler, error) {
+	config := newConfigServer()
 	return &serverHandler{
-		config:  config,
-		m:       middleware.NewRequestMiddleware(),
+		config: config,
+		m:      middleware.NewRequestMiddleware(),
 	}, nil
 }
 
-
-
 func Run(service *service.ServerService) {
-	config := newConfigServer()
-	h, err := newServerHandler(config)
+
+	h, err := newServerHandler()
 
 	if err != nil {
 		panic(err)
 	}
 
 	h.addService(service)
-	
-	file, err := storage.NewFileJSON(config.FileStoragePath)
+
+	file, err := storage.NewFileJSON(h.config.FileStoragePath)
 	if err != nil {
 		panic(err)
 	}
 	h.addFile(file)
 
-
 	defer h.file.Close()
 
-	if config.Restore {
-		m, err := h.file.Read()
-		if err != nil {
-			log.Println("Не удалось прочитать файл", err)
-		} else {
-			h.service.SetModel(*m)
-		}
-
-	}
-
-	if config.IntervalSave > 0 {
-		saveTicker := time.NewTicker(time.Duration(config.IntervalSave) * time.Second)
-		defer saveTicker.Stop()
-		go func() {
-			for range saveTicker.C {
-				err = h.file.Save(h.service.GetModels())
-				if err != nil {
-					log.Printf("Ошибка при записи в файл: %v\n", err)
-				}
-			}
-		}()
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-    defer cancel()
-	err = h.connectDB(ctx) 
+	defer cancel()
+	err = h.connectDB(ctx)
 	if err != nil {
 		panic(err)
 	}
 
-	r := chi.NewRouter()
-	r.Use(middleware.GzipMiddleware)
-	r.Get("/value/{type}/{name}", h.m.WithLogging(h.value))
-	r.Route("/update", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.updateJSON))
-	})
-	r.Route("/value", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.valueJSON))
-	})
+	h.read()
+	if h.config.IntervalSave > 0 {
+		saveTicker := time.NewTicker(time.Duration(h.config.IntervalSave) * time.Second)
+		defer saveTicker.Stop()
+		go func() {
+			for range saveTicker.C {
+				h.save()
+			}
+		}()
+	}
 
-	r.Get("/ping", h.m.WithLogging(h.ping))
-	r.Post("/update/{type}/{name}/{value}", h.m.WithLogging(h.update))
-	r.Get("/", h.m.WithLogging(h.main))
+	h.startServer()
+
+}
+
+func (h *serverHandler) startServer() error {
+	r := h.registerRoutes()
 
 	server := &http.Server{
 		Addr:    h.config.Address,
@@ -127,19 +107,42 @@ func Run(service *service.ServerService) {
 
 	if err := server.Shutdown(ctxStopServer); err != nil {
 		log.Printf("Ошибка при завершении сервера: %v\n", err)
+		return err
 	}
+	return nil
 }
 
 func (h *serverHandler) addService(service *service.ServerService) {
 	h.service = service
 }
 
-func (h *serverHandler) addFile( file *storage.FileJSON) {
+func (h *serverHandler) addFile(file *storage.FileJSON) {
 	h.file = file
 }
 
-func (h *serverHandler) connectDB(ctx context.Context) error{
-	if h.config.DateBaseDSN == "" {return  nil}
+// регистрируем роуты
+func (h *serverHandler) registerRoutes() *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(middleware.GzipMiddleware)
+	r.Route("/update", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.updateJSON))
+		r.Post("/{type}/{name}/{value}", h.m.WithLogging(h.update))
+	})
+	r.Route("/value", func(r chi.Router) {
+		r.Post("/", h.m.WithLogging(h.valueJSON))
+		r.Get("/{type}/{name}", h.m.WithLogging(h.value))
+	})
+
+	r.Get("/ping", h.m.WithLogging(h.ping))
+
+	r.Get("/", h.m.WithLogging(h.main))
+	return r
+}
+
+func (h *serverHandler) connectDB(ctx context.Context) error {
+	if h.config.DateBaseDSN == "" {
+		return nil
+	}
 	db, err := db.NewDB(ctx, h.config.DateBaseDSN)
 	if err != nil {
 		return err
@@ -167,6 +170,73 @@ func validateTypeMetrics(typeMode string) bool {
 func validateValueMetrics(value string) bool {
 	_, err := strconv.ParseFloat(value, 64)
 	return err == nil
+}
+
+// сохраняем информацию по метрикам
+// Если не доступна БД, сохраняем в файл
+func (h *serverHandler) save() {
+	if h.saveToDB() {
+		return
+	}
+	h.saveToFile()
+}
+
+func (h *serverHandler) saveToDB() bool {
+	if h.config.DateBaseDSN == "" || !h.db.Ping() {
+		return false
+	}
+	err := h.db.SaveAll(h.service.GetModels())
+	if err != nil {
+		log.Printf("Ошибка при записи в БД: %v\n", err)
+	} else {
+		return true
+	}
+
+	return false
+}
+
+func (h *serverHandler) saveToFile() {
+	err := h.file.Save(h.service.GetModels())
+	if err != nil {
+		log.Printf("Ошибка при записи в файл: %v\n", err)
+	}
+}
+
+func (h *serverHandler) read() {
+	if !h.config.Restore {
+		return
+	}
+
+	if h.readFromDB() {
+		return
+	}
+
+	h.readFromFile()
+}
+
+func (h *serverHandler) readFromDB() bool {
+	if h.config.DateBaseDSN == "" || !h.db.Ping() {
+		return false
+	}
+
+	m, err := h.db.ReadAll()
+	if err != nil {
+		log.Println("Не удалось получить информацию из БД", err)
+		return false
+	}
+
+	h.service.SetModel(m)
+	return true
+}
+
+func (h *serverHandler) readFromFile() {
+	m, err := h.file.Read()
+	if err != nil {
+		log.Println("Не удалось прочитать файл", err)
+		return
+	}
+
+	h.service.SetModel(*m)
 }
 
 func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
@@ -241,7 +311,7 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 
 }
 
-func (h *serverHandler) ping (res http.ResponseWriter, req *http.Request) {
+func (h *serverHandler) ping(res http.ResponseWriter, req *http.Request) {
 	if h.db.Ping() {
 		res.WriteHeader(http.StatusOK)
 	} else {

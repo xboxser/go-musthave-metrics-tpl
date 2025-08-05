@@ -98,22 +98,14 @@ func (s *AgentService) CheckRuntime() {
 func (s *AgentService) SendMetrics() error {
 	var metrics models.Metrics
 	var errs []error
+	var metricsBatch []models.Metrics
 
 	for name, value := range s.model.Gauge {
-
 		metrics.ID = name
 		metrics.MType = models.Gauge
 		metrics.Value = &value
 		metrics.Delta = nil
-		resp, err := json.Marshal(metrics)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error json Gauge: %v", err))
-			continue
-		}
-		err = s.send.SendRequest(resp)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error send Gauge: %v", err))
-		}
+		metricsBatch = append(metricsBatch, metrics)
 	}
 
 	for name, value := range s.model.Counter {
@@ -121,15 +113,20 @@ func (s *AgentService) SendMetrics() error {
 		metrics.MType = models.Counter
 		metrics.Value = nil
 		metrics.Delta = &value
-		resp, err := json.Marshal(metrics)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error json Counter: %v", err))
-			continue
-		}
-		err = s.send.SendRequest(resp)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error send Counter: %v", err))
-		}
+		metricsBatch = append(metricsBatch, metrics)
+	}
+
+	if len(metricsBatch) == 0 {
+		return nil
+	}
+
+	resp, err := json.Marshal(metricsBatch)
+	if err != nil {
+		return fmt.Errorf("error json metricsBatch: %v", err)
+	}
+	err = s.send.SendRequest(resp)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("error send metricsBatch: %v", err))
 	}
 
 	if len(errs) > 0 {

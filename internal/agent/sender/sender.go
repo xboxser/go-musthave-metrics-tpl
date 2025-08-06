@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"net/http"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -44,6 +45,39 @@ func (s *Sender) SendRequest(json []byte) error {
 		return fmt.Errorf("ошибка закрытия gzip writer: %w", err)
 	}
 
+	retryIntervals := []time.Duration{0, 1 * time.Second, 3 * time.Second, 5 * time.Second}
+	statusCode := 0
+	for _, retryInterval := range retryIntervals {
+		if retryInterval > 0 {
+			s.sugar.Infoln("Повторная отправка данных через", retryInterval)
+			time.Sleep(retryInterval)
+
+		}
+		statusCode, err := s.Send(compressedBuf)
+		if statusCode == http.StatusOK {
+			break
+		}
+
+		s.sugar.Infoln(
+			"unexpected status",
+			"json", string(json),
+			"status", statusCode,
+			"err", err,
+		)
+
+	}
+
+	if statusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status: %s", statusCode)
+	}
+
+	s.sugar.Debugln(
+		"json", string(json),
+	)
+	return nil
+}
+
+func (s *Sender) Send(compressedBuf bytes.Buffer) (int, error) {
 	url := fmt.Sprintf("http://%s/updates/", *s.baseURL)
 	req, err := http.NewRequest(http.MethodPost, url, &compressedBuf)
 
@@ -51,10 +85,9 @@ func (s *Sender) SendRequest(json []byte) error {
 		s.sugar.Infoln(
 			"failed to create request",
 			"uri", url,
-			"json", string(json),
 			"err", err,
 		)
-		return fmt.Errorf("failed to create request: %v", err)
+		return 0, fmt.Errorf("failed to create request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
@@ -63,25 +96,11 @@ func (s *Sender) SendRequest(json []byte) error {
 		s.sugar.Infoln(
 			"failed request",
 			"uri", url,
-			"json", string(json),
 			"err", err,
 		)
-		return fmt.Errorf("failed request: %v", err)
+		return 0, fmt.Errorf("failed request: %v", err)
 	}
+
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		s.sugar.Infoln(
-			"unexpected status",
-			"uri", url,
-			"json", string(json),
-			"status", response.Status,
-			"err", err,
-		)
-		return fmt.Errorf("unexpected status: %s, %s", response.Status, url)
-	}
-	s.sugar.Debugln(
-		"uri", url,
-		"json", string(json),
-	)
-	return nil
+	return response.StatusCode, nil
 }

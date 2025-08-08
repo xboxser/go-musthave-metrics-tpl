@@ -322,7 +322,6 @@ func (h *serverHandler) addMetrics(metrics models.Metrics) error {
 	}
 
 	err := h.service.UpdateJSON(&metrics)
-	fmt.Println("err", err)
 	if err != nil {
 		return err
 	}

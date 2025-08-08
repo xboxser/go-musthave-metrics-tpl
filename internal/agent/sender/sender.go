@@ -68,7 +68,7 @@ func (s *Sender) SendRequest(json []byte) error {
 	}
 
 	if statusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status: %s", statusCode)
+		return fmt.Errorf("unexpected status: %v", statusCode)
 	}
 
 	s.sugar.Debugln(

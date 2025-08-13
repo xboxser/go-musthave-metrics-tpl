@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand/v2"
 	"metrics/internal/agent/sender"
 	models "metrics/internal/model"
@@ -126,6 +127,7 @@ func (s *AgentService) SendMetrics() error {
 	}
 	err = s.send.SendRequest(resp)
 	if err != nil {
+		log.Println("error send metricsBatch", err)
 		errs = append(errs, fmt.Errorf("error send metricsBatch: %v", err))
 	}
 

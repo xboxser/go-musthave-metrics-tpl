@@ -17,7 +17,9 @@ import (
 )
 
 type DB struct {
-	conn *pgx.Conn
+	conn           *pgx.Conn
+	retryIntervals []time.Duration
+	classifier     *PostgresErrorClassifier
 }
 
 func NewDB(ctx context.Context, connStr string) (*DB, error) {
@@ -29,7 +31,9 @@ func NewDB(ctx context.Context, connStr string) (*DB, error) {
 		return nil, err
 	}
 	return &DB{
-		conn: conn,
+		classifier:     NewPostgresErrorClassifier(),
+		retryIntervals: []time.Duration{0, 1 * time.Second, 3 * time.Second, 5 * time.Second},
+		conn:           conn,
 	}, nil
 }
 
@@ -100,7 +104,21 @@ func (db *DB) SaveAll(metrics []models.Metrics) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	for _, m := range metrics {
-		_, err := db.conn.Exec(ctx, `
+		err := db.insertMetrics(ctx, m)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *DB) insertMetrics(ctx context.Context, m models.Metrics) error {
+	var err error
+	for _, retryInterval := range db.retryIntervals {
+		if retryInterval > 0 {
+			time.Sleep(retryInterval)
+		}
+		_, err = db.conn.Exec(ctx, `
             INSERT INTO metrics (id, type, delta, value)
             VALUES (@id, @type, @delta, @value)
             ON CONFLICT (id) 
@@ -114,9 +132,13 @@ func (db *DB) SaveAll(metrics []models.Metrics) error {
 			"delta": m.Delta,
 			"value": m.Value,
 		})
-		if err != nil {
-			return fmt.Errorf("ошибка при сохранении метрики %s: %w", m.ID, err)
+		classification := db.classifier.Classify(err)
+		if classification == NonRetriable {
+			break
 		}
+	}
+	if err != nil {
+		return fmt.Errorf("ошибка при сохранении метрики %s: %w", m.ID, err)
 	}
 	return nil
 }

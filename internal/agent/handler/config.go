@@ -13,7 +13,7 @@ type configAgent struct {
 	URL            string `env:"ADDRESS"`
 }
 
-func newCongigAgent() *configAgent {
+func newConfigAgent() *configAgent {
 	var cfg configAgent
 	_ = env.Parse(&cfg)
 

@@ -9,6 +9,7 @@ import (
 	"log"
 	"metrics/internal/config/db"
 	"metrics/internal/handler/middleware"
+	"metrics/internal/hash"
 	models "metrics/internal/model"
 	"metrics/internal/service"
 	"metrics/internal/storage"
@@ -29,6 +30,7 @@ type serverHandler struct {
 	m       *middleware.RequestMiddleware
 	file    *storage.FileJSON
 	db      *db.DB
+	hasher  hash.Hasher
 }
 
 func newServerHandler() (*serverHandler, error) {
@@ -36,6 +38,7 @@ func newServerHandler() (*serverHandler, error) {
 	return &serverHandler{
 		config: config,
 		m:      middleware.NewRequestMiddleware(),
+		hasher: nil,
 	}, nil
 }
 
@@ -54,6 +57,7 @@ func Run(service *service.ServerService) {
 		panic(err)
 	}
 	h.addFile(file)
+	h.addHasher(h.config.KEY)
 
 	defer h.file.Close()
 
@@ -119,6 +123,10 @@ func (h *serverHandler) addService(service *service.ServerService) {
 
 func (h *serverHandler) addFile(file *storage.FileJSON) {
 	h.file = file
+}
+
+func (h *serverHandler) addHasher(key string) {
+	h.hasher = hash.NewSHA256(key)
 }
 
 // регистрируем роуты
@@ -257,14 +265,25 @@ func (h *serverHandler) updateBatchJSON(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
+	data := buf.Bytes()
+	fmt.Println("data:", string(data))
 	var metrics []models.Metrics
 	// десериализуем JSON в Visitor
-	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+	if err = json.Unmarshal(data, &metrics); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		log.Println("error read  json", err)
 		return
 	}
-	fmt.Println("metrics", metrics)
+
+	binaryHash, err := h.hasher.DecodeString(req.Header.Get("HashSHA256"))
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(binaryHash) > 0 && !h.hasher.Compare(data, binaryHash) {
+		http.Error(res, "Error HashSHA256", http.StatusBadRequest)
+		return
+	}
 
 	for _, metric := range metrics {
 		err := h.addMetrics(metric)

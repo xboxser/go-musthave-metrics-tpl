@@ -13,6 +13,9 @@ func Run() {
 
 	metricsModel := models.NewMemStorage()
 	send := sender.NewSender(&configAgent.URL)
+	if configAgent.KEY != "" {
+		send.InitHasher(configAgent.KEY)
+	}
 	service := service.NewAgentService(metricsModel, send)
 
 	pollTicker := time.NewTicker(time.Duration(configAgent.PollInterval) * time.Second)

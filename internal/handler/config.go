@@ -12,6 +12,7 @@ type configServer struct {
 	IntervalSave    int    `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	DateBaseDSN     string `env:"DATABASE_DSN"`
+	KEY             string `env:"KEY"`
 	Restore         bool   `env:"RESTORE"`
 }
 
@@ -28,6 +29,7 @@ func newConfigServer() *configServer {
 	// alias migrate-up='migrate -database "postgres://metrics:qwerty!23@localhost:5432/metrics_db?sslmode=disable&search_path=metrics_schema" -path ./migrations up'
 	dateBaseDSN := serverFlags.String("d", "", "host db PostgreSQL")
 	restore := serverFlags.Bool("r", true, "read file to start server")
+	key := serverFlags.String("k", "", "specify the encryption key")
 	serverFlags.Parse(os.Args[1:])
 	if cfg.Address == "" {
 		cfg.Address = *address
@@ -43,6 +45,10 @@ func newConfigServer() *configServer {
 
 	if cfg.DateBaseDSN == "" {
 		cfg.DateBaseDSN = *dateBaseDSN
+	}
+
+	if cfg.KEY == "" {
+		cfg.KEY = *key
 	}
 
 	if !cfg.Restore {

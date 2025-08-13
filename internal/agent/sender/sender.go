@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"metrics/internal/hash"
 	"net/http"
 	"time"
 
@@ -14,6 +15,7 @@ type Sender struct {
 	baseURL *string
 	client  *http.Client
 	sugar   zap.SugaredLogger
+	hasher  hash.Hasher
 }
 
 func NewSender(baseURL *string) *Sender {
@@ -25,11 +27,17 @@ func NewSender(baseURL *string) *Sender {
 	}
 	defer logger.Sync()
 	sugar = *logger.Sugar()
+
 	return &Sender{
 		baseURL: baseURL,
 		client:  &http.Client{},
 		sugar:   sugar,
+		hasher:  nil,
 	}
+}
+
+func (s *Sender) InitHasher(key string) {
+	s.hasher = hash.NewSHA256(key)
 }
 
 func (s *Sender) SendRequest(json []byte) error {
@@ -45,6 +53,11 @@ func (s *Sender) SendRequest(json []byte) error {
 		return fmt.Errorf("ошибка закрытия gzip writer: %w", err)
 	}
 
+	hashSum := ""
+	if s.hasher != nil {
+		hashSum = s.hasher.StringHash(json)
+	}
+
 	retryIntervals := []time.Duration{0, 1 * time.Second, 3 * time.Second, 5 * time.Second}
 	statusCode := 0
 	for _, retryInterval := range retryIntervals {
@@ -53,11 +66,10 @@ func (s *Sender) SendRequest(json []byte) error {
 			time.Sleep(retryInterval)
 
 		}
-		statusCode, err := s.Send(compressedBuf)
+		statusCode, err := s.Send(compressedBuf, hashSum)
 		if statusCode == http.StatusOK {
 			break
 		}
-
 		s.sugar.Infoln(
 			"unexpected status",
 			"json", string(json),
@@ -77,7 +89,7 @@ func (s *Sender) SendRequest(json []byte) error {
 	return nil
 }
 
-func (s *Sender) Send(compressedBuf bytes.Buffer) (int, error) {
+func (s *Sender) Send(compressedBuf bytes.Buffer, hashSum string) (int, error) {
 	url := fmt.Sprintf("http://%s/updates/", *s.baseURL)
 	req, err := http.NewRequest(http.MethodPost, url, &compressedBuf)
 
@@ -91,6 +103,10 @@ func (s *Sender) Send(compressedBuf bytes.Buffer) (int, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	if hashSum != "" {
+		req.Header.Set("HashSHA256", hashSum)
+	}
+
 	response, err := s.client.Do(req)
 	if err != nil {
 		s.sugar.Infoln(

@@ -39,8 +39,8 @@ func newConfigAgent() *configAgent {
 	if cfg.KEY == "" {
 		cfg.KEY = *key
 	}
-	if cfg.RATE_LIMIT == 0 {
-		cfg.RATE_LIMIT = *rateLimit
+	if cfg.RateLimit == 0 {
+		cfg.RateLimit = *rateLimit
 	}
 	return &cfg
 }

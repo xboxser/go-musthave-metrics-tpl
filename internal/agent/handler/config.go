@@ -12,7 +12,7 @@ type configAgent struct {
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	URL            string `env:"ADDRESS"`
 	KEY            string `env:"KEY"`
-	RATE_LIMIT     int    `env:"RATE_LIMIT"`
+	RateLimit      int    `env:"RATE_LIMIT"`
 }
 
 func newConfigAgent() *configAgent {

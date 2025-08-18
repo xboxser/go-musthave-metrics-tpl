@@ -10,17 +10,23 @@ import (
 	"metrics/internal/agent/sender"
 	models "metrics/internal/model"
 	"runtime"
+	"strconv"
+
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 type AgentService struct {
-	model *models.MemStorage
-	send  *sender.Sender
+	model     *models.MemStorage
+	send      *sender.Sender
+	rateLimit int
 }
 
-func NewAgentService(model *models.MemStorage, send *sender.Sender) *AgentService {
+func NewAgentService(model *models.MemStorage, send *sender.Sender, rateLimit int) *AgentService {
 	return &AgentService{
-		model: model,
-		send:  send,
+		model:     model,
+		send:      send,
+		rateLimit: rateLimit,
 	}
 }
 
@@ -66,8 +72,9 @@ func (s *AgentService) CheckRuntime() {
 
 	chanGaugeMemMetrics := generatorGaugeMemoryMetrics()
 	chanCounterMetrics := generatorCounterMetrics()
+	chanGaugeGopMetrics := generatorGaugeGopsutilMetrics()
 
-	s.fanIn([]chan agentModel.ChanCounter{chanCounterMetrics}, []chan agentModel.ChanGauge{chanGaugeMemMetrics})
+	s.fanIn([]chan agentModel.ChanCounter{chanCounterMetrics}, []chan agentModel.ChanGauge{chanGaugeMemMetrics, chanGaugeGopMetrics})
 }
 
 func (s *AgentService) SendMetrics() error {
@@ -94,16 +101,46 @@ func (s *AgentService) SendMetrics() error {
 	if len(metricsBatch) == 0 {
 		return nil
 	}
+	const batchSize = 5
 
-	resp, err := json.Marshal(metricsBatch)
-	if err != nil {
-		return fmt.Errorf("error json metricsBatch: %v", err)
+	byteChan := make(chan []byte, len(metricsBatch))
+	errorChan := make(chan error, s.rateLimit)
+
+	for i := 0; i < s.rateLimit; i++ {
+		go func(byteChan <-chan []byte, errorChan chan<- error) {
+			for resp := range byteChan {
+				err := s.send.SendRequest(resp)
+				errorChan <- err
+			}
+
+		}(byteChan, errorChan)
 	}
-	err = s.send.SendRequest(resp)
-	if err != nil {
-		log.Println("error send metricsBatch", err)
-		errs = append(errs, fmt.Errorf("error send metricsBatch: %v", err))
+
+	countBatch := 0
+	for i := 0; i < len(metricsBatch); i += batchSize {
+		end := i + batchSize
+		if end > len(metricsBatch) {
+			end = len(metricsBatch)
+		}
+		resp, err := json.Marshal(metricsBatch[i:end])
+		if err != nil {
+			close(byteChan)
+			close(errorChan)
+			return fmt.Errorf("error json metricsBatch: %v", err)
+		}
+		countBatch++
+		byteChan <- resp
 	}
+
+	close(byteChan)
+	completedWorkers := 0
+	for completedWorkers < countBatch {
+		if err := <-errorChan; err != nil {
+			errs = append(errs, fmt.Errorf("error send metricsBatch: %v", err))
+		}
+		completedWorkers++
+	}
+	close(errorChan)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to send metrics: %w", errors.Join(errs...))
@@ -136,6 +173,39 @@ func generatorCounterMetrics() chan agentModel.ChanCounter {
 			Name:  "PollCount",
 			Value: 1,
 		}
+	}()
+	return outMetrics
+}
+
+func generatorGaugeGopsutilMetrics() chan agentModel.ChanGauge {
+	outMetrics := make(chan agentModel.ChanGauge)
+	go func() {
+		defer close(outMetrics)
+		mem, err := mem.VirtualMemory()
+		if err != nil {
+			log.Println("Error:", err)
+			return
+		}
+		outMetrics <- agentModel.ChanGauge{
+			Name:  "TotalMemory",
+			Value: mem.Total,
+		}
+		outMetrics <- agentModel.ChanGauge{
+			Name:  "FreeMemory",
+			Value: mem.Free,
+		}
+		cpuPercent, err := cpu.Percent(0, true)
+		if err != nil {
+			log.Printf("Ошибка при получении загрузки CPU: %v", err)
+			return
+		}
+		for i, percent := range cpuPercent {
+			outMetrics <- agentModel.ChanGauge{
+				Name:  "CPUutilization" + strconv.Itoa(i),
+				Value: percent,
+			}
+		}
+
 	}()
 	return outMetrics
 }

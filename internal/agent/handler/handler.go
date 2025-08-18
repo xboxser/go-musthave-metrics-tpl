@@ -16,7 +16,7 @@ func Run() {
 	if configAgent.KEY != "" {
 		send.InitHasher(configAgent.KEY)
 	}
-	service := service.NewAgentService(metricsModel, send)
+	service := service.NewAgentService(metricsModel, send, configAgent.RateLimit)
 
 	pollTicker := time.NewTicker(time.Duration(configAgent.PollInterval) * time.Second)
 	reportTicker := time.NewTicker(time.Duration(configAgent.ReportInterval) * time.Second)

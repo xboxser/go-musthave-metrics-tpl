@@ -55,12 +55,12 @@ func (s *AgentService) addGauge(name string, val interface{}) error {
 	default:
 		return errors.New("error update operation: incorrect type value")
 	}
-	s.model.Gauge[name] = floatVal
+	s.model.UpdateGauge(name, floatVal)
 	return nil
 }
 
 func (s *AgentService) addCounter(name string, val int64) error {
-	s.model.Counter[name] += val
+	s.model.UpdateCounter(name, val)
 	return nil
 }
 
@@ -82,6 +82,7 @@ func (s *AgentService) SendMetrics() error {
 	var errs []error
 	var metricsBatch []models.Metrics
 
+	s.model.GaugeMu.RLock()
 	for name, value := range s.model.Gauge {
 		metrics.ID = name
 		metrics.MType = models.Gauge
@@ -89,7 +90,9 @@ func (s *AgentService) SendMetrics() error {
 		metrics.Delta = nil
 		metricsBatch = append(metricsBatch, metrics)
 	}
+	s.model.GaugeMu.RUnlock()
 
+	s.model.CountMu.RLock()
 	for name, value := range s.model.Counter {
 		metrics.ID = name
 		metrics.MType = models.Counter
@@ -97,6 +100,7 @@ func (s *AgentService) SendMetrics() error {
 		metrics.Delta = &value
 		metricsBatch = append(metricsBatch, metrics)
 	}
+	s.model.CountMu.RUnlock()
 
 	if len(metricsBatch) == 0 {
 		return nil

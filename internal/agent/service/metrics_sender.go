@@ -4,11 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-	agentModel "metrics/internal/agent/model"
 	"metrics/internal/agent/sender"
 	models "metrics/internal/model"
-	"runtime"
 )
 
 type MetricsSender struct {
@@ -51,7 +48,8 @@ func (s *MetricsSender) SendMetrics(storage *models.MemStorage) error {
 	if len(metricsBatch) == 0 {
 		return nil
 	}
-	const batchSize = 5
+	var batchSize int
+	batchSize = len(metricsBatch) / s.rateLimit
 
 	byteChan := make(chan []byte, len(metricsBatch))
 	errorChan := make(chan error, s.rateLimit)
@@ -96,42 +94,4 @@ func (s *MetricsSender) SendMetrics(storage *models.MemStorage) error {
 		return fmt.Errorf("failed to send metrics: %w", errors.Join(errs...))
 	}
 	return nil
-}
-
-func generatorCounterMetrics() chan agentModel.ChanCounter {
-	outMetrics := make(chan agentModel.ChanCounter)
-	go func() {
-		defer close(outMetrics)
-		outMetrics <- agentModel.ChanCounter{
-			Name:  "PollCount",
-			Value: 1,
-		}
-	}()
-	return outMetrics
-}
-
-func generatorGaugeGopsutilMetrics() chan agentModel.ChanGauge {
-	outMetrics := make(chan agentModel.ChanGauge)
-	go func() {
-		defer close(outMetrics)
-		err := sendGaugeGopsutil(outMetrics)
-		if err != nil {
-			log.Printf("Ошибка при метрик: %v", err)
-		}
-
-	}()
-	return outMetrics
-}
-
-func generatorGaugeMemoryMetrics() chan agentModel.ChanGauge {
-	outMetrics := make(chan agentModel.ChanGauge)
-
-	go func() {
-		defer close(outMetrics)
-		var mem runtime.MemStats
-		runtime.ReadMemStats(&mem)
-		sendMemStats(outMetrics, &mem)
-		sendRandomValue(outMetrics)
-	}()
-	return outMetrics
 }

@@ -3,8 +3,10 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log"
 	agentModel "metrics/internal/agent/model"
 	models "metrics/internal/model"
+	"runtime"
 )
 
 type MetricsCollector struct {
@@ -77,4 +79,41 @@ func (s *MetricsCollector) fanIn(counterChans []chan agentModel.ChanCounter, gau
 			}
 		}(gaugeChan)
 	}
+}
+func generatorCounterMetrics() chan agentModel.ChanCounter {
+	outMetrics := make(chan agentModel.ChanCounter)
+	go func() {
+		defer close(outMetrics)
+		outMetrics <- agentModel.ChanCounter{
+			Name:  "PollCount",
+			Value: 1,
+		}
+	}()
+	return outMetrics
+}
+
+func generatorGaugeGopsutilMetrics() chan agentModel.ChanGauge {
+	outMetrics := make(chan agentModel.ChanGauge)
+	go func() {
+		defer close(outMetrics)
+		err := sendGaugeGopsutil(outMetrics)
+		if err != nil {
+			log.Printf("Ошибка при метрик: %v", err)
+		}
+
+	}()
+	return outMetrics
+}
+
+func generatorGaugeMemoryMetrics() chan agentModel.ChanGauge {
+	outMetrics := make(chan agentModel.ChanGauge)
+
+	go func() {
+		defer close(outMetrics)
+		var mem runtime.MemStats
+		runtime.ReadMemStats(&mem)
+		sendMemStats(outMetrics, &mem)
+		sendRandomValue(outMetrics)
+	}()
+	return outMetrics
 }

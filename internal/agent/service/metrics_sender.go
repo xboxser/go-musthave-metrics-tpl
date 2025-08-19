@@ -48,8 +48,8 @@ func (s *MetricsSender) SendMetrics(storage *models.MemStorage) error {
 	if len(metricsBatch) == 0 {
 		return nil
 	}
-	var batchSize int
-	batchSize = len(metricsBatch) / s.rateLimit
+
+	batchSize := len(metricsBatch) / s.rateLimit
 
 	byteChan := make(chan []byte, len(metricsBatch))
 	errorChan := make(chan error, s.rateLimit)

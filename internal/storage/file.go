@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// Сохраняет метрики в файл
 type FileJSON struct {
 	file    *os.File
 	encoder *json.Encoder
@@ -19,7 +20,7 @@ func NewFileJSON(fileName string) (*FileJSON, error) {
 	}
 
 	encoder := json.NewEncoder(file)
-    encoder.SetIndent("", "  ") // Настроим один раз
+	encoder.SetIndent("", "  ") // Настроим один раз
 
 	return &FileJSON{
 		file:    file,
@@ -36,7 +37,7 @@ func (f *FileJSON) Save(m []models.Metrics) error {
 	if _, err := f.file.Seek(0, 0); err != nil {
 		return err
 	}
-	
+
 	err := f.encoder.Encode(m)
 	if err != nil {
 		return err

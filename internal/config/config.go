@@ -1,4 +1,4 @@
-package handler
+package config
 
 import (
 	"flag"
@@ -7,17 +7,19 @@ import (
 	"github.com/caarlos0/env"
 )
 
-type configServer struct {
+type ConfigServer struct {
 	Address         string `env:"ADDRESS"`
 	IntervalSave    int    `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	DateBaseDSN     string `env:"DATABASE_DSN"`
 	KEY             string `env:"KEY"`
 	Restore         bool   `env:"RESTORE"`
+	AuditFile       string `env:"AUDIT_FILE"`
+	AuditUrl        string `env:"AUDIT_URL"`
 }
 
-func newConfigServer() *configServer {
-	var cfg configServer
+func NewConfigServer() *ConfigServer {
+	var cfg ConfigServer
 	_ = env.Parse(&cfg)
 
 	serverFlags := flag.NewFlagSet("server", flag.ExitOnError)
@@ -30,6 +32,10 @@ func newConfigServer() *configServer {
 	dateBaseDSN := serverFlags.String("d", "", "host db PostgreSQL")
 	restore := serverFlags.Bool("r", true, "read file to start server")
 	key := serverFlags.String("k", "", "specify the encryption key")
+
+	auditFile := serverFlags.String("audit-file", "", "путь к файлу, в который сохраняются логи аудита")
+	auditUrl := serverFlags.String("audit-url", "", "путь к файлу, в который сохраняются логи аудита")
+
 	serverFlags.Parse(os.Args[1:])
 	if cfg.Address == "" {
 		cfg.Address = *address
@@ -49,6 +55,14 @@ func newConfigServer() *configServer {
 
 	if cfg.KEY == "" {
 		cfg.KEY = *key
+	}
+
+	if cfg.AuditFile == "" {
+		cfg.AuditFile = *auditFile
+	}
+
+	if cfg.AuditUrl == "" {
+		cfg.AuditUrl = *auditUrl
 	}
 
 	if !cfg.Restore {

@@ -13,7 +13,7 @@ type FileAuditJSON struct {
 }
 
 func NewAuditFileJSON(fileName string) (*FileAuditJSON, error) {
-	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0666)
+	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
 	}

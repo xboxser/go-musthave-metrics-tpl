@@ -295,13 +295,24 @@ func (h *serverHandler) updateBatchJSON(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
+	IDMetrics := make([]string, len(metrics))
 	for _, metric := range metrics {
 		err := h.addMetrics(metric)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
+		IDMetrics = append(IDMetrics, metric.ID)
 	}
+
+	host, _, _ := net.SplitHostPort(req.RemoteAddr)
+	audit := modelAudit.Audit{
+		IP_address: host,
+		Metrics:    IDMetrics,
+		TS:         int(time.Now().Unix()),
+	}
+	h.event.Update(audit)
+
 	res.WriteHeader(http.StatusOK)
 }
 
@@ -341,6 +352,13 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	host, _, _ := net.SplitHostPort(req.RemoteAddr)
+	audit := modelAudit.Audit{
+		IP_address: host,
+		Metrics:    []string{metrics.ID},
+		TS:         int(time.Now().Unix()),
+	}
+	h.event.Update(audit)
 	res.WriteHeader(http.StatusOK)
 	res.Write(resp)
 }
@@ -382,14 +400,13 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 	}
-	host, _, _ := net.SplitHostPort(req.RemoteAddr)
 
+	host, _, _ := net.SplitHostPort(req.RemoteAddr)
 	audit := modelAudit.Audit{
 		IP_address: host,
 		Metrics:    []string{name},
 		TS:         int(time.Now().Unix()),
 	}
-
 	h.event.Update(audit)
 
 	res.WriteHeader(http.StatusOK)

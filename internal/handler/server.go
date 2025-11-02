@@ -42,7 +42,7 @@ func newServerHandler() (*serverHandler, error) {
 	config := config.NewConfigServer()
 	event := new(audit.Event)
 	event.Register(audit.NewFileSubscriber(config.AuditFile))
-	event.Register(audit.NewUrlSubscriber(config.AuditURL))
+	event.Register(audit.NewURLSubscriber(config.AuditURL))
 
 	return &serverHandler{
 		config: config,

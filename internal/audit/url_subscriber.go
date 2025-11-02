@@ -8,15 +8,15 @@ import (
 )
 
 // Реализует интерфейс Observer
-type UrlSubscriber struct {
+type URLSubscriber struct {
 	url string
 }
 
-func NewUrlSubscriber(url string) *UrlSubscriber {
-	return &UrlSubscriber{url: url}
+func NewURLSubscriber(url string) *URLSubscriber {
+	return &URLSubscriber{url: url}
 }
 
-func (f *UrlSubscriber) Update(audit model.Audit) {
+func (f *URLSubscriber) Update(audit model.Audit) {
 	if f.url == "" {
 		return
 	}

@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"metrics/internal/audit"
+	modelAudit "metrics/internal/audit/model"
+	"metrics/internal/config"
 	"metrics/internal/config/db"
 	"metrics/internal/handler/middleware"
 	"metrics/internal/hash"
 	models "metrics/internal/model"
 	"metrics/internal/service"
 	"metrics/internal/storage"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,19 +30,25 @@ import (
 
 type serverHandler struct {
 	service *service.ServerService
-	config  *configServer
+	config  *config.ConfigServer
 	m       *middleware.RequestMiddleware
 	file    *storage.FileJSON
 	db      *db.DB
 	hasher  hash.Hasher
+	event   *audit.Event
 }
 
 func newServerHandler() (*serverHandler, error) {
-	config := newConfigServer()
+	config := config.NewConfigServer()
+	event := new(audit.Event)
+	event.Register(audit.NewFileSubscriber(config.AuditFile))
+	event.Register(audit.NewURLSubscriber(config.AuditURL))
+
 	return &serverHandler{
 		config: config,
 		m:      middleware.NewRequestMiddleware(),
 		hasher: nil,
+		event:  event,
 	}, nil
 }
 
@@ -84,6 +94,7 @@ func Run(service *service.ServerService) {
 }
 
 func (h *serverHandler) startServer() error {
+
 	r := h.registerRoutes()
 
 	server := &http.Server{
@@ -266,7 +277,6 @@ func (h *serverHandler) updateBatchJSON(res http.ResponseWriter, req *http.Reque
 	}
 
 	data := buf.Bytes()
-	fmt.Println("data:", string(data))
 	var metrics []models.Metrics
 	// десериализуем JSON в Visitor
 	if err = json.Unmarshal(data, &metrics); err != nil {
@@ -285,13 +295,24 @@ func (h *serverHandler) updateBatchJSON(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
+	IDMetrics := make([]string, len(metrics))
 	for _, metric := range metrics {
 		err := h.addMetrics(metric)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
+		IDMetrics = append(IDMetrics, metric.ID)
 	}
+
+	host, _, _ := net.SplitHostPort(req.RemoteAddr)
+	audit := modelAudit.Audit{
+		IPAddress: host,
+		Metrics:   IDMetrics,
+		TS:        int(time.Now().Unix()),
+	}
+	h.event.Update(audit)
+
 	res.WriteHeader(http.StatusOK)
 }
 
@@ -331,6 +352,13 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	host, _, _ := net.SplitHostPort(req.RemoteAddr)
+	audit := modelAudit.Audit{
+		IPAddress: host,
+		Metrics:   []string{metrics.ID},
+		TS:        int(time.Now().Unix()),
+	}
+	h.event.Update(audit)
 	res.WriteHeader(http.StatusOK)
 	res.Write(resp)
 }
@@ -373,6 +401,15 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 	}
 
+	host, _, _ := net.SplitHostPort(req.RemoteAddr)
+	audit := modelAudit.Audit{
+		IPAddress: host,
+		Metrics:   []string{name},
+		TS:        int(time.Now().Unix()),
+	}
+	h.event.Update(audit)
+
+	res.WriteHeader(http.StatusOK)
 }
 
 func (h *serverHandler) ping(res http.ResponseWriter, req *http.Request) {

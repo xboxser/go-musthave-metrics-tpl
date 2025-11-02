@@ -307,9 +307,9 @@ func (h *serverHandler) updateBatchJSON(res http.ResponseWriter, req *http.Reque
 
 	host, _, _ := net.SplitHostPort(req.RemoteAddr)
 	audit := modelAudit.Audit{
-		IP_address: host,
-		Metrics:    IDMetrics,
-		TS:         int(time.Now().Unix()),
+		IPAddress: host,
+		Metrics:   IDMetrics,
+		TS:        int(time.Now().Unix()),
 	}
 	h.event.Update(audit)
 
@@ -354,9 +354,9 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 
 	host, _, _ := net.SplitHostPort(req.RemoteAddr)
 	audit := modelAudit.Audit{
-		IP_address: host,
-		Metrics:    []string{metrics.ID},
-		TS:         int(time.Now().Unix()),
+		IPAddress: host,
+		Metrics:   []string{metrics.ID},
+		TS:        int(time.Now().Unix()),
 	}
 	h.event.Update(audit)
 	res.WriteHeader(http.StatusOK)
@@ -403,9 +403,9 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 
 	host, _, _ := net.SplitHostPort(req.RemoteAddr)
 	audit := modelAudit.Audit{
-		IP_address: host,
-		Metrics:    []string{name},
-		TS:         int(time.Now().Unix()),
+		IPAddress: host,
+		Metrics:   []string{name},
+		TS:        int(time.Now().Unix()),
 	}
 	h.event.Update(audit)
 

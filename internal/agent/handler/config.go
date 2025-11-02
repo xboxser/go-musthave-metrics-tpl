@@ -12,6 +12,7 @@ type configAgent struct {
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	URL            string `env:"ADDRESS"`
 	KEY            string `env:"KEY"`
+	RateLimit      int    `env:"RATE_LIMIT"`
 }
 
 func newConfigAgent() *configAgent {
@@ -23,6 +24,7 @@ func newConfigAgent() *configAgent {
 	pollInterval := agentFlags.Int("p", 2, "The interval for building metrics")
 	reportInterval := agentFlags.Int("r", 10, "The interval for sending data to the server")
 	key := agentFlags.String("k", "", "specify the encryption key")
+	rateLimit := agentFlags.Int("l", 2, "rate limit")
 	agentFlags.Parse(os.Args[1:])
 
 	if cfg.PollInterval == 0 {
@@ -37,6 +39,8 @@ func newConfigAgent() *configAgent {
 	if cfg.KEY == "" {
 		cfg.KEY = *key
 	}
-
+	if cfg.RateLimit == 0 {
+		cfg.RateLimit = *rateLimit
+	}
 	return &cfg
 }

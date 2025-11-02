@@ -15,7 +15,7 @@ type ConfigServer struct {
 	KEY             string `env:"KEY"`
 	Restore         bool   `env:"RESTORE"`
 	AuditFile       string `env:"AUDIT_FILE"`
-	AuditUrl        string `env:"AUDIT_URL"`
+	AuditURL        string `env:"AUDIT_URL"`
 }
 
 func NewConfigServer() *ConfigServer {
@@ -34,7 +34,7 @@ func NewConfigServer() *ConfigServer {
 	key := serverFlags.String("k", "", "specify the encryption key")
 
 	auditFile := serverFlags.String("audit-file", "", "путь к файлу, в который сохраняются логи аудита")
-	auditUrl := serverFlags.String("audit-url", "", "путь к файлу, в который сохраняются логи аудита")
+	auditURL := serverFlags.String("audit-url", "", "путь к файлу, в который сохраняются логи аудита")
 
 	serverFlags.Parse(os.Args[1:])
 	if cfg.Address == "" {
@@ -61,8 +61,8 @@ func NewConfigServer() *ConfigServer {
 		cfg.AuditFile = *auditFile
 	}
 
-	if cfg.AuditUrl == "" {
-		cfg.AuditUrl = *auditUrl
+	if cfg.AuditURL == "" {
+		cfg.AuditURL = *auditURL
 	}
 
 	if !cfg.Restore {

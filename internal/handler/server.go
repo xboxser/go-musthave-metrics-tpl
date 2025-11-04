@@ -144,6 +144,14 @@ func (h *serverHandler) addHasher(key string) {
 func (h *serverHandler) registerRoutes() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.GzipMiddleware)
+
+	// Регистрация маршрутов pprof
+	// r.Mount("/debug/pprof", http.HandlerFunc(pprof.Index))
+	// r.Mount("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+	// r.Mount("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+	// r.Mount("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+	// r.Mount("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/", h.m.WithLogging(h.updateJSON))
 		r.Post("/{type}/{name}/{value}", h.m.WithLogging(h.update))
@@ -413,7 +421,7 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *serverHandler) ping(res http.ResponseWriter, req *http.Request) {
-	if h.db.Ping() {
+	if h.db != nil && h.db.Ping() {
 		res.WriteHeader(http.StatusOK)
 	} else {
 		res.WriteHeader(http.StatusInternalServerError)

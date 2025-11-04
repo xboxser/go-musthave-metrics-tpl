@@ -7,15 +7,16 @@ import (
 	"github.com/caarlos0/env"
 )
 
+// ConfigServer - конфиг сервер
 type ConfigServer struct {
-	Address         string `env:"ADDRESS"`
-	IntervalSave    int    `env:"STORE_INTERVAL"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	DateBaseDSN     string `env:"DATABASE_DSN"`
-	KEY             string `env:"KEY"`
-	Restore         bool   `env:"RESTORE"`
-	AuditFile       string `env:"AUDIT_FILE"`
-	AuditURL        string `env:"AUDIT_URL"`
+	Address         string `env:"ADDRESS"`           // Адрес сервера
+	IntervalSave    int    `env:"STORE_INTERVAL"`    // Интервал сохранения метрик
+	FileStoragePath string `env:"FILE_STORAGE_PATH"` // Имя и путь до файла сохранения метрика
+	DateBaseDSN     string `env:"DATABASE_DSN"`      // Подключение к БД
+	KEY             string `env:"KEY"`               // Ключ используемый в SHA256
+	Restore         bool   `env:"RESTORE"`           // Имя и путь до файла, читается при запуске сервер
+	AuditFile       string `env:"AUDIT_FILE"`        // Путь к файлу, в который сохраняются логи аудита
+	AuditURL        string `env:"AUDIT_URL"`         // Путь к url, в который отправляются логи аудита
 }
 
 func NewConfigServer() *ConfigServer {
@@ -34,7 +35,7 @@ func NewConfigServer() *ConfigServer {
 	key := serverFlags.String("k", "", "specify the encryption key")
 
 	auditFile := serverFlags.String("audit-file", "", "путь к файлу, в который сохраняются логи аудита")
-	auditURL := serverFlags.String("audit-url", "", "путь к файлу, в который сохраняются логи аудита")
+	auditURL := serverFlags.String("audit-url", "", "путь к url, в который отправляются логи аудита")
 
 	serverFlags.Parse(os.Args[1:])
 	if cfg.Address == "" {

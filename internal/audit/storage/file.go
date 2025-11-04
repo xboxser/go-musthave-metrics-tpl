@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// FileAuditJSON - файл для хранения аудита в json
 type FileAuditJSON struct {
 	file    *os.File
 	encoder *json.Encoder
@@ -28,6 +29,7 @@ func NewAuditFileJSON(fileName string) (*FileAuditJSON, error) {
 	}, nil
 }
 
+// Save - сохранение аудита в конец файла
 func (f *FileAuditJSON) Save(a model.Audit) error {
 	err := f.encoder.Encode(a)
 	if err != nil {

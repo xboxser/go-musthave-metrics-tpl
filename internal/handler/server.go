@@ -52,6 +52,7 @@ func newServerHandler() (*serverHandler, error) {
 	}, nil
 }
 
+// Run - основной метод запуска обработчика сервера
 func Run(service *service.ServerService) {
 
 	h, err := newServerHandler()

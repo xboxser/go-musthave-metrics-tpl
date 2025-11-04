@@ -7,6 +7,7 @@ const (
 	Gauge   = "gauge"
 )
 
+// MemStorage - основная структура для хранения метрик в ОЗУ
 type MemStorage struct {
 	Gauge   map[string]float64
 	Counter map[string]int64

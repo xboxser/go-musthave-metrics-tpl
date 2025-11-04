@@ -6,6 +6,7 @@ import (
 	"metrics/internal/audit/storage"
 )
 
+// FileSubscriber - обработчик аудита работающий  с файлом  JSON
 // Реализует интерфейс Observer
 // файла-приёмник, добавляет информацию в конец файла, указанного в параметре конфигурации, на новой строке.
 type FileSubscriber struct {

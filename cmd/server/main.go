@@ -4,6 +4,7 @@ import (
 	"metrics/internal/handler"
 	models "metrics/internal/model"
 	"metrics/internal/service"
+	// _ "net/http/pprof" // подключаем пакет pprof
 )
 
 func main() {

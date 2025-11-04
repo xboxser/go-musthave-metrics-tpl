@@ -58,7 +58,19 @@ func (m *MemStorage) GetCounter(name string) (int64, bool) {
 func (m *MemStorage) GetAll() (map[string]float64, map[string]int64) {
 	m.GaugeMu.RLock()
 	m.CountMu.RLock()
-	defer m.GaugeMu.RUnlock()
+
+	// Создаем копии map'ов для безопасного возврата
+	gaugeCopy := make(map[string]float64)
+	for k, v := range m.Gauge {
+		gaugeCopy[k] = v
+	}
+
+	counterCopy := make(map[string]int64)
+	for k, v := range m.Counter {
+		counterCopy[k] = v
+	}
+
 	defer m.CountMu.RUnlock()
-	return m.Gauge, m.Counter
+	defer m.GaugeMu.RUnlock()
+	return gaugeCopy, counterCopy
 }

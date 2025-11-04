@@ -21,7 +21,6 @@ func (w *gzipWriter) Write(b []byte) (int, error) {
 	}
 
 	return w.gzWriter.Write(b)
-
 }
 
 func (w *gzipWriter) WriteHeader(statusCode int) {

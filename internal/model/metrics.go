@@ -7,6 +7,14 @@ const (
 	Gauge   = "gauge"
 )
 
+type Storage interface {
+	UpdateGauge(name string, val float64)
+	UpdateCounter(name string, val int64)
+	GetGauge(name string) (float64, bool)
+	GetCounter(name string) (int64, bool)
+	GetAll() (map[string]float64, map[string]int64)
+}
+
 // MemStorage - основная структура для хранения метрик в ОЗУ
 type MemStorage struct {
 	Gauge   map[string]float64
@@ -20,14 +28,6 @@ func NewMemStorage() *MemStorage {
 		Gauge:   make(map[string]float64),
 		Counter: make(map[string]int64),
 	}
-}
-
-type Storage interface {
-	UpdateGauge(name string, val float64)
-	UpdateCounter(name string, val int64)
-	GetGauge(name string) (float64, bool)
-	GetCounter(name string) (int64, bool)
-	GetAll() (map[string]float64, map[string]int64)
 }
 
 func (m *MemStorage) UpdateCounter(name string, val int64) {

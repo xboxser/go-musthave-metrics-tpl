@@ -153,7 +153,6 @@ func TestGetAll(t *testing.T) {
 		name    string
 		counter []counter
 		gauge   []gauge
-		val     int64
 	}{
 		{
 			name: "simple number",

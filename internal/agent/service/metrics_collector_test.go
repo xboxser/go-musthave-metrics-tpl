@@ -8,7 +8,7 @@ import (
 func TestAddGauge(t *testing.T) {
 	type args struct {
 		name string
-		val  interface{}
+		val  any
 	}
 
 	tests := []struct {
@@ -19,6 +19,12 @@ func TestAddGauge(t *testing.T) {
 	}{
 		{name: "valid parameters", args: args{name: "name", val: float64(123)}, valError: false, want: float64(123)},
 		{name: "valid parameters bool", args: args{name: "name", val: bool(true)}, valError: false, want: float64(1)},
+		{name: "valid parameters bool", args: args{name: "name", val: bool(false)}, valError: false, want: float64(0)},
+		{name: "valid parameters float32", args: args{name: "name", val: float32(1235)}, valError: false, want: float64(1235)},
+		{name: "valid parameters uint64", args: args{name: "name", val: uint64(12235)}, valError: false, want: float64(12235)},
+		{name: "valid parameters int64", args: args{name: "name", val: int64(88)}, valError: false, want: float64(88)},
+		{name: "valid parameters uint32", args: args{name: "name", val: uint32(8008)}, valError: false, want: float64(8008)},
+		{name: "valid parameters int64", args: args{name: "name", val: int(147)}, valError: false, want: float64(147)},
 		{name: "valid parameters", args: args{name: "name", val: "lololol"}, valError: true, want: float64(0)},
 	}
 

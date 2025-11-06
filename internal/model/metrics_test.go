@@ -87,6 +87,7 @@ func TestGetGauge(t *testing.T) {
 			val, ok := metrics.GetGauge(tt.key)
 
 			assert.Equal(t, ok, false)
+			assert.Equal(t, val, 0.)
 
 			metrics.UpdateGauge(tt.key, tt.val)
 			val, ok = metrics.GetGauge(tt.key)

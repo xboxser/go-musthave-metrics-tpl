@@ -20,9 +20,6 @@ func TestNewSender(t *testing.T) {
 	if sender.client == nil {
 		t.Error("client should not be nil")
 	}
-	if &sender.sugar == nil {
-		t.Error("sugar should not be nil")
-	}
 }
 
 // TestSender_Send_WithHash проверяет отправку с хешем

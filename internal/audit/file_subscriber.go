@@ -33,6 +33,7 @@ func (f *FileSubscriber) Update(audit model.Audit) {
 	if f.file != nil {
 		err := f.file.Save(audit)
 		if err != nil {
+			f.file.Close()
 			panic(err)
 		}
 	}

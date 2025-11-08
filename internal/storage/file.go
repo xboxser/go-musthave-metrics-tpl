@@ -48,6 +48,12 @@ func (f *FileJSON) Save(m []models.Metrics) error {
 
 func (f *FileJSON) Read() (*[]models.Metrics, error) {
 	m := &[]models.Metrics{}
+
+	// Устанавливаем указатель в начало файла
+	if _, err := f.file.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
 	// Проверяем размер файла
 	stat, err := f.file.Stat()
 	if err != nil {

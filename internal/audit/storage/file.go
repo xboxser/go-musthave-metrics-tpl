@@ -38,3 +38,7 @@ func (f *FileAuditJSON) Save(a model.Audit) error {
 
 	return nil
 }
+
+func (f *FileAuditJSON) Close() error {
+	return f.file.Close()
+}

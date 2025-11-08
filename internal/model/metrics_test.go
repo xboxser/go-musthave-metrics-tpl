@@ -123,6 +123,7 @@ func TestGetCounter(t *testing.T) {
 			val, ok := metrics.GetCounter(tt.key)
 
 			assert.Equal(t, ok, false)
+			assert.Equal(t, val, int64(0))
 			metrics.UpdateCounter(tt.key, tt.val)
 
 			val, ok = metrics.GetCounter(tt.key)

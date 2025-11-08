@@ -28,7 +28,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type serverHandler struct {
+type ServerHandler struct {
 	service *service.ServerService
 	config  *config.ConfigServer
 	m       *middleware.RequestMiddleware
@@ -38,13 +38,13 @@ type serverHandler struct {
 	event   *audit.Event
 }
 
-func newServerHandler() (*serverHandler, error) {
+func NewServerHandler() (*ServerHandler, error) {
 	config := config.NewConfigServer()
 	event := new(audit.Event)
 	event.Register(audit.NewFileSubscriber(config.AuditFile))
 	event.Register(audit.NewURLSubscriber(config.AuditURL))
 
-	return &serverHandler{
+	return &ServerHandler{
 		config: config,
 		m:      middleware.NewRequestMiddleware(),
 		hasher: nil,
@@ -55,7 +55,7 @@ func newServerHandler() (*serverHandler, error) {
 // Run - основной метод запуска обработчика сервера
 func Run(service *service.ServerService) {
 
-	h, err := newServerHandler()
+	h, err := NewServerHandler()
 
 	if err != nil {
 		panic(err)
@@ -94,7 +94,7 @@ func Run(service *service.ServerService) {
 
 }
 
-func (h *serverHandler) startServer() error {
+func (h *ServerHandler) startServer() error {
 
 	r := h.registerRoutes()
 
@@ -129,20 +129,20 @@ func (h *serverHandler) startServer() error {
 	return nil
 }
 
-func (h *serverHandler) addService(service *service.ServerService) {
+func (h *ServerHandler) addService(service *service.ServerService) {
 	h.service = service
 }
 
-func (h *serverHandler) addFile(file *storage.FileJSON) {
+func (h *ServerHandler) addFile(file *storage.FileJSON) {
 	h.file = file
 }
 
-func (h *serverHandler) addHasher(key string) {
+func (h *ServerHandler) addHasher(key string) {
 	h.hasher = hash.NewSHA256(key)
 }
 
 // регистрируем роуты
-func (h *serverHandler) registerRoutes() *chi.Mux {
+func (h *ServerHandler) registerRoutes() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.GzipMiddleware)
 
@@ -155,23 +155,23 @@ func (h *serverHandler) registerRoutes() *chi.Mux {
 
 	r.Route("/update", func(r chi.Router) {
 		r.Post("/", h.m.WithLogging(h.updateJSON))
-		r.Post("/{type}/{name}/{value}", h.m.WithLogging(h.update))
+		r.Post("/{type}/{name}/{value}", h.m.WithLogging(h.Update))
 	})
 	r.Route("/updates", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.updateBatchJSON))
+		r.Post("/", h.m.WithLogging(h.UpdateBatchJSON))
 	})
 	r.Route("/value", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.valueJSON))
-		r.Get("/{type}/{name}", h.m.WithLogging(h.value))
+		r.Post("/", h.m.WithLogging(h.ValueJSON))
+		r.Get("/{type}/{name}", h.m.WithLogging(h.Value))
 	})
 
-	r.Get("/ping", h.m.WithLogging(h.ping))
+	r.Get("/ping", h.m.WithLogging(h.Ping))
 
-	r.Get("/", h.m.WithLogging(h.main))
+	r.Get("/", h.m.WithLogging(h.Main))
 	return r
 }
 
-func (h *serverHandler) connectDB(ctx context.Context) error {
+func (h *ServerHandler) connectDB(ctx context.Context) error {
 	if h.config.DateBaseDSN == "" {
 		return nil
 	}
@@ -206,14 +206,14 @@ func validateValueMetrics(value string) bool {
 
 // сохраняем информацию по метрикам
 // Если не доступна БД, сохраняем в файл
-func (h *serverHandler) save() {
+func (h *ServerHandler) save() {
 	if h.saveToDB() {
 		return
 	}
 	h.saveToFile()
 }
 
-func (h *serverHandler) saveToDB() bool {
+func (h *ServerHandler) saveToDB() bool {
 	if h.config.DateBaseDSN == "" || !h.db.Ping() {
 		return false
 	}
@@ -227,14 +227,14 @@ func (h *serverHandler) saveToDB() bool {
 	return false
 }
 
-func (h *serverHandler) saveToFile() {
+func (h *ServerHandler) saveToFile() {
 	err := h.file.Save(h.service.GetModels())
 	if err != nil {
 		log.Printf("Ошибка при записи в файл: %v\n", err)
 	}
 }
 
-func (h *serverHandler) read() {
+func (h *ServerHandler) read() {
 	if !h.config.Restore {
 		return
 	}
@@ -246,7 +246,7 @@ func (h *serverHandler) read() {
 	h.readFromFile()
 }
 
-func (h *serverHandler) readFromDB() bool {
+func (h *ServerHandler) readFromDB() bool {
 	if h.config.DateBaseDSN == "" || !h.db.Ping() {
 		return false
 	}
@@ -261,7 +261,7 @@ func (h *serverHandler) readFromDB() bool {
 	return true
 }
 
-func (h *serverHandler) readFromFile() {
+func (h *ServerHandler) readFromFile() {
 	m, err := h.file.Read()
 	if err != nil {
 		log.Println("Не удалось прочитать файл", err)
@@ -270,7 +270,9 @@ func (h *serverHandler) readFromFile() {
 
 	h.service.SetModel(*m)
 }
-func (h *serverHandler) updateBatchJSON(res http.ResponseWriter, req *http.Request) {
+
+// UpdateBatchJSON - обновлять несколько метрик одновременно, отправляя массив метрик в формате JSON.
+func (h *ServerHandler) UpdateBatchJSON(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
@@ -325,7 +327,7 @@ func (h *serverHandler) updateBatchJSON(res http.ResponseWriter, req *http.Reque
 	res.WriteHeader(http.StatusOK)
 }
 
-func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
+func (h *ServerHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/json")
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
@@ -372,7 +374,7 @@ func (h *serverHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 	res.Write(resp)
 }
 
-func (h *serverHandler) addMetrics(metrics models.Metrics) error {
+func (h *ServerHandler) addMetrics(metrics models.Metrics) error {
 	if !validateTypeMetrics(metrics.MType) {
 		return fmt.Errorf("incorrect metric type")
 	}
@@ -384,7 +386,8 @@ func (h *serverHandler) addMetrics(metrics models.Metrics) error {
 	return nil
 }
 
-func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
+// Update - обновить значение конкретной метрики
+func (h *ServerHandler) Update(res http.ResponseWriter, req *http.Request) {
 
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
@@ -421,7 +424,8 @@ func (h *serverHandler) update(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
-func (h *serverHandler) ping(res http.ResponseWriter, req *http.Request) {
+// Ping - проверка есть ли подключение к БД
+func (h *ServerHandler) Ping(res http.ResponseWriter, req *http.Request) {
 	if h.db != nil && h.db.Ping() {
 		res.WriteHeader(http.StatusOK)
 	} else {
@@ -429,7 +433,8 @@ func (h *serverHandler) ping(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (h *serverHandler) valueJSON(res http.ResponseWriter, req *http.Request) {
+// ValueJSON - возвращает значение метрики в виде JSON
+func (h *ServerHandler) ValueJSON(res http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		http.Error(res, "Use method POST", http.StatusMethodNotAllowed)
 		return
@@ -472,7 +477,8 @@ func (h *serverHandler) valueJSON(res http.ResponseWriter, req *http.Request) {
 	res.Write(resp)
 }
 
-func (h *serverHandler) value(res http.ResponseWriter, req *http.Request) {
+// Value - получить значение метрики
+func (h *ServerHandler) Value(res http.ResponseWriter, req *http.Request) {
 
 	typeMetrics := strings.ToLower(chi.URLParam(req, "type"))
 	name := strings.ToLower(chi.URLParam(req, "name"))
@@ -491,7 +497,8 @@ func (h *serverHandler) value(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte(val))
 }
 
-func (h *serverHandler) main(res http.ResponseWriter, req *http.Request) {
+// Main - точка вывода html страницы со всеми метриками
+func (h *ServerHandler) Main(res http.ResponseWriter, req *http.Request) {
 
 	data := h.service.GetAll()
 

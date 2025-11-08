@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestNewFileJSON - тестируем создание файла
 func TestNewFileJSON(t *testing.T) {
 	// Создаем временный файл для теста
 	tmpFile, err := os.CreateTemp("", "test_metrics.json")
@@ -30,6 +31,7 @@ func TestNewFileJSON(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestReadEmptyFile - тестируем чтение из пустого файла
 func TestReadEmptyFile(t *testing.T) {
 	// Создаем временный файл для теста
 	tmpFile, err := os.CreateTemp("", "test_empty_metrics.json")
@@ -48,6 +50,7 @@ func TestReadEmptyFile(t *testing.T) {
 	assert.Empty(t, *metrics)
 }
 
+// TestSaveAndRead - тестируем сохранение и чтение
 func TestSaveAndRead(t *testing.T) {
 	// Создаем временный файл для теста
 	tmpFile, err := os.CreateTemp("", "test_metrics.json")
@@ -79,5 +82,16 @@ func TestSaveAndRead(t *testing.T) {
 	err = fileJSON.Save(testMetrics)
 	assert.NoError(t, err)
 
-	// TODO доделать чтение из файла
+	metrics, err := fileJSON.Read()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, *metrics)
+
+	assert.Equal(t, testMetrics[0].ID, (*metrics)[0].ID)
+	assert.Equal(t, testMetrics[1].ID, (*metrics)[1].ID)
+
+	assert.Equal(t, testMetrics[0].MType, (*metrics)[0].MType)
+	assert.Equal(t, testMetrics[1].MType, (*metrics)[1].MType)
+
+	assert.Equal(t, testMetrics[0].Delta, (*metrics)[0].Delta)
+	assert.Equal(t, testMetrics[1].Value, (*metrics)[1].Value)
 }

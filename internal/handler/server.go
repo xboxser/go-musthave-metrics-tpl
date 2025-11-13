@@ -15,7 +15,6 @@ import (
 	"metrics/internal/hash"
 	models "metrics/internal/model"
 	"metrics/internal/service"
-	"metrics/internal/storage"
 	"net"
 	"net/http"
 	"os"
@@ -32,10 +31,10 @@ type ServerHandler struct {
 	service *service.ServerService
 	config  *config.ConfigServer
 	m       *middleware.RequestMiddleware
-	file    *storage.FileJSON
 	db      *db.DB
 	hasher  hash.Hasher
 	event   *audit.Event
+	storage *Storage
 }
 
 func NewServerHandler() (*ServerHandler, error) {
@@ -43,12 +42,13 @@ func NewServerHandler() (*ServerHandler, error) {
 	event := new(audit.Event)
 	event.Register(audit.NewFileSubscriber(config.AuditFile))
 	event.Register(audit.NewURLSubscriber(config.AuditURL))
-
+	storage := NewStorage(config)
 	return &ServerHandler{
-		config: config,
-		m:      middleware.NewRequestMiddleware(),
-		hasher: nil,
-		event:  event,
+		config:  config,
+		m:       middleware.NewRequestMiddleware(),
+		hasher:  nil,
+		event:   event,
+		storage: storage,
 	}, nil
 }
 
@@ -62,15 +62,9 @@ func Run(service *service.ServerService) {
 	}
 
 	h.addService(service)
-
-	file, err := storage.NewFileJSON(h.config.FileStoragePath)
-	if err != nil {
-		panic(err)
-	}
-	h.addFile(file)
 	h.addHasher(h.config.KEY)
 
-	defer h.file.Close()
+	defer h.storage.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -117,7 +111,7 @@ func (h *ServerHandler) startServer() error {
 	// Ждём сигнал остановки
 	<-stop
 	// записываем данные в файл
-	h.file.Save(h.service.GetModels())
+	h.storage.SaveToFile(h.service.GetModels())
 	// Пытаемся корректно завершить сервер
 	ctxStopServer, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -131,10 +125,6 @@ func (h *ServerHandler) startServer() error {
 
 func (h *ServerHandler) addService(service *service.ServerService) {
 	h.service = service
-}
-
-func (h *ServerHandler) addFile(file *storage.FileJSON) {
-	h.file = file
 }
 
 func (h *ServerHandler) addHasher(key string) {
@@ -228,10 +218,7 @@ func (h *ServerHandler) saveToDB() bool {
 }
 
 func (h *ServerHandler) saveToFile() {
-	err := h.file.Save(h.service.GetModels())
-	if err != nil {
-		log.Printf("Ошибка при записи в файл: %v\n", err)
-	}
+	h.storage.SaveToFile(h.service.GetModels())
 }
 
 func (h *ServerHandler) read() {
@@ -262,13 +249,8 @@ func (h *ServerHandler) readFromDB() bool {
 }
 
 func (h *ServerHandler) readFromFile() {
-	m, err := h.file.Read()
-	if err != nil {
-		log.Println("Не удалось прочитать файл", err)
-		return
-	}
-
-	h.service.SetModel(*m)
+	m := h.storage.ReadFromFile()
+	h.service.SetModel(m)
 }
 
 // UpdateBatchJSON - обновлять несколько метрик одновременно, отправляя массив метрик в формате JSON.

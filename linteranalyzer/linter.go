@@ -1,4 +1,4 @@
-package linter_analyzer
+package linteranalyzer
 
 import (
 	"fmt"
@@ -39,13 +39,12 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					return true
 				}
 				objName := f.Sel.Name
-				pkgNameId := pkgIdent.Name
-				fmt.Println("pkgNameId", pkgNameId)
-				if (pkgNameId == "log" && objName == "Fatal") || (pkgNameId == "os" && objName == "Exit") {
+				pkgNameID := pkgIdent.Name
+				if (pkgNameID == "log" && objName == "Fatal") || (pkgNameID == "os" && objName == "Exit") {
 					// находим окружающую функцию
 					enclosingFunc := enclosingFuncName(pass, callExpr)
 					if !(pkgName == "main" && enclosingFunc == "main") {
-						pass.Reportf(callExpr.Pos(), "call to %s.%s outside main.main function", pkgNameId, objName)
+						pass.Reportf(callExpr.Pos(), "call to %s.%s outside main.main function", pkgNameID, objName)
 					}
 				}
 			}

@@ -6,6 +6,7 @@ import (
 	"metrics/internal/audit/storage"
 )
 
+// FileSubscriber - обработчик аудита работающий  с файлом  JSON
 // Реализует интерфейс Observer
 // файла-приёмник, добавляет информацию в конец файла, указанного в параметре конфигурации, на новой строке.
 type FileSubscriber struct {
@@ -32,6 +33,7 @@ func (f *FileSubscriber) Update(audit model.Audit) {
 	if f.file != nil {
 		err := f.file.Save(audit)
 		if err != nil {
+			f.file.Close()
 			panic(err)
 		}
 	}

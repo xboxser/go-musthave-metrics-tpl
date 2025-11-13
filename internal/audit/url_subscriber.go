@@ -7,6 +7,7 @@ import (
 	"net/http"
 )
 
+// URLSubscriber - обработчик аудита отправляет результат на указанный URL
 // Реализует интерфейс Observer
 type URLSubscriber struct {
 	url string

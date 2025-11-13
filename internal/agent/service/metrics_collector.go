@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	agentModel "metrics/internal/agent/model"
 	models "metrics/internal/model"
@@ -58,10 +57,6 @@ func (s *MetricsCollector) addGauge(name string, val interface{}) error {
 func (s *MetricsCollector) addCounter(name string, val int64) error {
 	s.model.UpdateCounter(name, val)
 	return nil
-}
-
-func (s *MetricsCollector) Print() {
-	fmt.Println(s.model)
 }
 
 func (s *MetricsCollector) fanIn(counterChans []chan agentModel.ChanCounter, gaugeChans []chan agentModel.ChanGauge) {

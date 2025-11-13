@@ -9,7 +9,7 @@ import (
 
 func Run() {
 
-	configAgent := newConfigAgent()
+	configAgent := NewConfigAgent()
 
 	metricsModel := models.NewMemStorage()
 	send := sender.NewSender(&configAgent.URL)

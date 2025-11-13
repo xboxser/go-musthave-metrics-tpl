@@ -2,6 +2,8 @@ package audit
 
 import "metrics/internal/audit/model"
 
+// Event - событие получение данных по метрикам
+// Использует патерн Наблюдатель (Observer)
 // Реализует интерфейс Publisher
 type Event struct {
 	observers []model.Observer

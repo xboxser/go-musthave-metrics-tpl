@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 )
 
+// SHA256 - структура для хеширования данных
 type SHA256 struct {
 	key [32]byte
 }
@@ -15,16 +16,19 @@ func NewSHA256(keyStr string) *SHA256 {
 	return &SHA256{key: key}
 }
 
+// Hash - хеширует данные в []byte
 func (s *SHA256) Hash(data []byte) []byte {
 	h := hmac.New(sha256.New, s.key[:])
 	h.Write(data)
 	return h.Sum(nil)
 }
 
+// StringHash - хеширует данные в строку
 func (s *SHA256) StringHash(data []byte) string {
 	return hex.EncodeToString(s.Hash(data))
 }
 
+// Compare - хеширует первый параметр и сравнивает с хешем из второго параметра
 func (s *SHA256) Compare(data []byte, hash []byte) bool {
 	return hmac.Equal(s.Hash(data), hash)
 }
@@ -32,7 +36,6 @@ func (s *SHA256) Compare(data []byte, hash []byte) bool {
 func (s *SHA256) DecodeString(hashSumString string) ([]byte, error) {
 	binaryHash, err := hex.DecodeString(hashSumString)
 	if err != nil {
-
 		return []byte{}, err
 	}
 	return binaryHash, nil

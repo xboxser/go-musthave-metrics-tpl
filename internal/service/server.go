@@ -7,6 +7,7 @@ import (
 	"strconv"
 )
 
+// ServerService - сервис сервера отвечающий за взаимодействие с объектами метрики
 type ServerService struct {
 	model models.Storage
 }
@@ -17,6 +18,7 @@ func NewServeService(model models.Storage) *ServerService {
 	}
 }
 
+// UpdateJSON - обновление метрики на основе полученного json
 func (s *ServerService) UpdateJSON(m *models.Metrics) error {
 	if m.MType == models.Counter {
 		s.model.UpdateCounter(m.ID, *m.Delta)
@@ -32,6 +34,7 @@ func (s *ServerService) UpdateJSON(m *models.Metrics) error {
 	return nil
 }
 
+// Update - Обновление метрики по трём главным параметрам
 func (s *ServerService) Update(t string, name string, val string) error {
 
 	if t == models.Counter {
@@ -52,6 +55,7 @@ func (s *ServerService) Update(t string, name string, val string) error {
 	return nil
 }
 
+// GetValueJSON - получение метрики для дальнейшей обработки в json структуре
 func (s *ServerService) GetValueJSON(m *models.Metrics) error {
 	if m.MType == models.Counter {
 		val, ok := s.model.GetCounter(m.ID)
@@ -71,6 +75,7 @@ func (s *ServerService) GetValueJSON(m *models.Metrics) error {
 	return nil
 }
 
+// GetValue - получение метрики по типу и имени
 func (s *ServerService) GetValue(t string, name string) (string, error) {
 	if t == models.Counter {
 		val, ok := s.model.GetCounter(name)
@@ -90,21 +95,23 @@ func (s *ServerService) GetValue(t string, name string) (string, error) {
 	}
 }
 
+// GetAll - получение информации по всем метрикам в памяти
 func (s *ServerService) GetAll() map[string]string {
-	guuge, counter := s.model.GetAll()
+	gauge, counter := s.model.GetAll()
 
-	res := map[string]string{}
-	for name, val := range guuge {
-		res["gauge "+name] = fmt.Sprintf("%g", val)
+	res := make(map[string]string, len(gauge)+len(counter))
+	for name, val := range gauge {
+		res["gauge "+name] = strconv.FormatFloat(val, 'f', -1, 64)
 	}
 
 	for name, val := range counter {
-		res["counter "+name] = fmt.Sprintf("%v", val)
+		res["counter "+name] = strconv.FormatInt(val, 10)
 	}
 
 	return res
 }
 
+// GetModels - возвращаем все модели в нужной структуре
 func (s *ServerService) GetModels() []models.Metrics {
 	metrics := []models.Metrics{}
 	gauge, counter := s.model.GetAll()
@@ -128,6 +135,7 @@ func (s *ServerService) GetModels() []models.Metrics {
 
 }
 
+// SetModel - устанавливает массив моделей в оперативную память
 func (s *ServerService) SetModel(m []models.Metrics) {
 	if len(m) < 1 {
 		return

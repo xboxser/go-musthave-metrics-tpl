@@ -60,13 +60,15 @@ func (s *Sender) SendRequest(json []byte) error {
 
 	retryIntervals := []time.Duration{0, 1 * time.Second, 3 * time.Second, 5 * time.Second}
 	statusCode := 0
+	var lastErr error
+
 	for _, retryInterval := range retryIntervals {
 		if retryInterval > 0 {
 			s.sugar.Infoln("Повторная отправка данных через", retryInterval)
 			time.Sleep(retryInterval)
 
 		}
-		statusCode, err := s.Send(compressedBuf, hashSum)
+		statusCode, lastErr = s.Send(compressedBuf, hashSum)
 		if statusCode == http.StatusOK {
 			break
 		}
@@ -74,12 +76,15 @@ func (s *Sender) SendRequest(json []byte) error {
 			"unexpected status",
 			"json", string(json),
 			"status", statusCode,
-			"err", err,
+			"err", lastErr,
 		)
 
 	}
 
 	if statusCode != http.StatusOK {
+		if lastErr != nil {
+			return fmt.Errorf("unexpected status: %v, error: %w", statusCode, lastErr)
+		}
 		return fmt.Errorf("unexpected status: %v", statusCode)
 	}
 

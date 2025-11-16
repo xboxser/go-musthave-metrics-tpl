@@ -25,7 +25,7 @@ func NewServiceReset(root string) *ServiceReset {
 }
 
 func (s *ServiceReset) Run() error {
-	err := filepath.Walk(s.root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(s.root, func(path string, info os.FileInfo, walkErr error) error {
 
 		// Пропускаем определенные директории и с префиксом .
 		if info.IsDir() {

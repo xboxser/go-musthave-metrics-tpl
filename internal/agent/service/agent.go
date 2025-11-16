@@ -5,6 +5,8 @@ import (
 	models "metrics/internal/model"
 )
 
+// generate:reset
+
 type AgentService struct {
 	metricsCollector *MetricsCollector
 	metricsSender    *MetricsSender

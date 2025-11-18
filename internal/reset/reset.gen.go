@@ -10,19 +10,6 @@ func (PackageInfo *PackageInfo) Reset() {
 	PackageInfo.Name = ""
 	PackageInfo.Path = ""
 	PackageInfo.Structs = PackageInfo.Structs[:0]
-	PackageInfo.i = 0
-	PackageInfo.str = ""
-	if PackageInfo.strP != nil {
-		*PackageInfo.strP = ""
-	}
-	PackageInfo.s = PackageInfo.s[:0]
-	clear(PackageInfo.m)
-	if PackageInfo.child != nil {
-		var resetter interface{} = PackageInfo.child
-		if r, ok := resetter.(interface{ Reset() }); ok {
-			r.Reset()
-		}
-	}
 
 }
 
@@ -40,5 +27,25 @@ func (StructField *StructField) Reset() {
 		return
 	}
 	StructField.Name = ""
+
+}
+
+func (StructTest *StructTest) Reset() {
+	if StructTest == nil {
+		return
+	}
+	StructTest.i = 0
+	StructTest.str = ""
+	if StructTest.strP != nil {
+		*StructTest.strP = ""
+	}
+	StructTest.s = StructTest.s[:0]
+	clear(StructTest.m)
+	if StructTest.child != nil {
+		var resetter interface{} = StructTest.child
+		if r, ok := resetter.(interface{ Reset() }); ok {
+			r.Reset()
+		}
+	}
 
 }

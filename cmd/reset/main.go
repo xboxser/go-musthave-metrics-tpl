@@ -1,6 +1,9 @@
 package main
 
-import "metrics/reset"
+import (
+	"fmt"
+	"metrics/internal/reset"
+)
 
 func main() {
 	root := "../../" // Корневая директория проекта относительно cmd/reset
@@ -11,4 +14,23 @@ func main() {
 		panic(err)
 	}
 
+	//Проверяем работу iter22
+	pool := reset.NewPool(func() *MyStruct { return &MyStruct{} })
+
+	obj := pool.Get()
+	obj.Field = 100
+
+	pool.Put(obj)
+
+	another := pool.Get()
+	fmt.Println(another)
+
+}
+
+type MyStruct struct {
+	Field int
+}
+
+func (m *MyStruct) Reset() {
+	m.Field = 0
 }

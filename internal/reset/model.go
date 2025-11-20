@@ -8,12 +8,6 @@ type PackageInfo struct {
 	Name    string
 	Path    string
 	Structs []StructInfo
-	i       int
-	str     string
-	strP    *string
-	s       []int
-	m       map[string]string
-	child   *PackageInfo
 }
 
 // StructInfo - информация о структуре
@@ -26,4 +20,13 @@ type StructInfo struct {
 type StructField struct {
 	Name string
 	Type ast.Expr
+}
+
+type StructTest struct {
+	i     int
+	str   string
+	strP  *string
+	s     []int
+	m     map[string]string
+	child *PackageInfo
 }

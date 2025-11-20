@@ -6,6 +6,7 @@ import (
 	"metrics/internal/storage"
 )
 
+// Storage - хранение и чтение метрик
 type Storage struct {
 	config *config.ConfigServer
 	file   *storage.FileJSON

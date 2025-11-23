@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewConfigServer - Тестируем конфиг сервера
-func TestNewConfigServer(t *testing.T) {
+// TestNewConfigAgent - Тестируем конфиг сервера
+func TestNewConfigAgent(t *testing.T) {
 
 	oldArgs := os.Args
 	oldReportInterval := os.Getenv("REPORT_INTERVAL")

@@ -13,7 +13,7 @@ func TestNewStorage(t *testing.T) {
 	cfg := &config.ConfigServer{}
 	cfg.FileStoragePath = "test.json"
 
-	storage := NewStorage(cfg)
+	storage := NewStorageManager(cfg)
 	defer storage.Close()
 	// Проверяем, что структура создана
 	assert.NotNil(t, storage)
@@ -32,7 +32,7 @@ func TestSaveAndRead(t *testing.T) {
 
 	cfg := &config.ConfigServer{}
 	cfg.FileStoragePath = testFileName
-	storage := NewStorage(cfg)
+	storage := NewStorageManager(cfg)
 	defer storage.Close()
 	delta := int64(42)
 	value := float64(3.14)

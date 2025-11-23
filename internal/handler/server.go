@@ -10,7 +10,6 @@ import (
 	"metrics/internal/audit"
 	modelAudit "metrics/internal/audit/model"
 	"metrics/internal/config"
-	"metrics/internal/config/db"
 	"metrics/internal/handler/middleware"
 	"metrics/internal/hash"
 	models "metrics/internal/model"
@@ -31,10 +30,9 @@ type ServerHandler struct {
 	service *service.ServerService
 	config  *config.ConfigServer
 	m       *middleware.RequestMiddleware
-	db      *db.DB
 	hasher  hash.Hasher
 	event   *audit.Event
-	storage *Storage
+	storage *StorageManager
 }
 
 func NewServerHandler() (*ServerHandler, error) {
@@ -42,7 +40,7 @@ func NewServerHandler() (*ServerHandler, error) {
 	event := new(audit.Event)
 	event.Register(audit.NewFileSubscriber(config.AuditFile))
 	event.Register(audit.NewURLSubscriber(config.AuditURL))
-	storage := NewStorage(config)
+	storage := NewStorageManager(config)
 	return &ServerHandler{
 		config:  config,
 		m:       middleware.NewRequestMiddleware(),
@@ -162,14 +160,10 @@ func (h *ServerHandler) registerRoutes() *chi.Mux {
 }
 
 func (h *ServerHandler) connectDB(ctx context.Context) error {
-	if h.config.DateBaseDSN == "" {
-		return nil
-	}
-	db, err := db.NewDB(ctx, h.config.DateBaseDSN)
+	err := h.storage.ConnectDB(ctx)
 	if err != nil {
 		return err
 	}
-	h.db = db
 	return nil
 }
 
@@ -204,17 +198,7 @@ func (h *ServerHandler) save() {
 }
 
 func (h *ServerHandler) saveToDB() bool {
-	if h.config.DateBaseDSN == "" || !h.db.Ping() {
-		return false
-	}
-	err := h.db.SaveAll(h.service.GetModels())
-	if err != nil {
-		log.Printf("Ошибка при записи в БД: %v\n", err)
-	} else {
-		return true
-	}
-
-	return false
+	return h.storage.SaveToDB(h.service.GetModels())
 }
 
 func (h *ServerHandler) saveToFile() {
@@ -234,13 +218,8 @@ func (h *ServerHandler) read() {
 }
 
 func (h *ServerHandler) readFromDB() bool {
-	if h.config.DateBaseDSN == "" || !h.db.Ping() {
-		return false
-	}
-
-	m, err := h.db.ReadAll()
-	if err != nil {
-		log.Println("Не удалось получить информацию из БД", err)
+	m, ok := h.storage.ReadFromDB()
+	if ok != false {
 		return false
 	}
 
@@ -408,7 +387,7 @@ func (h *ServerHandler) Update(res http.ResponseWriter, req *http.Request) {
 
 // Ping - проверка есть ли подключение к БД
 func (h *ServerHandler) Ping(res http.ResponseWriter, req *http.Request) {
-	if h.db != nil && h.db.Ping() {
+	if h.storage.db != nil && h.storage.db.Ping() {
 		res.WriteHeader(http.StatusOK)
 	} else {
 		res.WriteHeader(http.StatusInternalServerError)

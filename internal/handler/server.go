@@ -219,7 +219,7 @@ func (h *ServerHandler) read() {
 
 func (h *ServerHandler) readFromDB() bool {
 	m, ok := h.storage.ReadFromDB()
-	if ok != false {
+	if !ok {
 		return false
 	}
 

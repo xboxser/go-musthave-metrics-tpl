@@ -87,5 +87,8 @@ func (h *StorageManager) ReadFromDB() ([]models.Metrics, bool) {
 
 // Ping - проверка есть ли подключение к БД
 func (h *StorageManager) Ping() bool {
+	if h.config.DateBaseDSN == "" {
+		return false
+	}
 	return h.db.Ping()
 }

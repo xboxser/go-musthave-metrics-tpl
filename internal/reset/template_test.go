@@ -27,6 +27,15 @@ func TestZeroValue(t *testing.T) {
 			want: "TestStruct.IntegerField = 0",
 		},
 		{
+			name: "float64 field",
+			args: args{
+				expr:       &ast.Ident{Name: "float64"},
+				structName: "TestStruct",
+				fieldName:  "Float64Field",
+			},
+			want: "TestStruct.Float64Field = 0",
+		},
+		{
 			name: "string field",
 			args: args{
 				expr:       &ast.Ident{Name: "string"},

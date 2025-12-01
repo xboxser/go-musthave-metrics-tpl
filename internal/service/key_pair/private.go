@@ -1,4 +1,4 @@
-package key_pair
+package keypair
 
 import (
 	"crypto/rand"

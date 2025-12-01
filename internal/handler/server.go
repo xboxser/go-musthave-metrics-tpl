@@ -14,7 +14,7 @@ import (
 	"metrics/internal/hash"
 	models "metrics/internal/model"
 	"metrics/internal/service"
-	"metrics/internal/service/key_pair"
+	key_pair "metrics/internal/service/key_pair"
 	"net"
 	"net/http"
 	"os"

@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"metrics/internal/hash"
-	"metrics/internal/service/key_pair"
+	key_pair "metrics/internal/service/key_pair"
 	"net/http"
 	"time"
 
@@ -57,11 +57,11 @@ func (s *Sender) SendRequest(json []byte) error {
 	gz := gzip.NewWriter(&compressedBuf)
 
 	if s.cryptoCertificate != nil {
-		encryptedJson, err := s.cryptoCertificate.Encrypt(json)
+		encryptedJSON, err := s.cryptoCertificate.Encrypt(json)
 		if err != nil {
 			return err
 		}
-		json = encryptedJson
+		json = encryptedJSON
 	}
 
 	// Сжатие данных

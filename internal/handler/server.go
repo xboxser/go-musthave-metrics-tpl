@@ -14,6 +14,7 @@ import (
 	"metrics/internal/hash"
 	models "metrics/internal/model"
 	"metrics/internal/service"
+	"metrics/internal/service/key_pair"
 	"net"
 	"net/http"
 	"os"
@@ -27,12 +28,13 @@ import (
 )
 
 type ServerHandler struct {
-	service *service.ServerService
-	config  *config.ConfigServer
-	m       *middleware.RequestMiddleware
-	hasher  hash.Hasher
-	event   *audit.Event
-	storage *StorageManager
+	service           *service.ServerService
+	config            *config.ConfigServer
+	m                 *middleware.RequestMiddleware
+	hasher            hash.Hasher
+	event             *audit.Event
+	storage           *StorageManager
+	cryptoCertificate *key_pair.PrivateKey
 }
 
 func NewServerHandler() (*ServerHandler, error) {
@@ -61,6 +63,13 @@ func Run(service *service.ServerService) {
 
 	h.addService(service)
 	h.addHasher(h.config.KEY)
+
+	if h.config.CryptoKeyPrivatePath != "" {
+		err := h.addCryptoCertificate(h.config.CryptoKeyPrivatePath)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	defer h.storage.Close()
 
@@ -127,6 +136,15 @@ func (h *ServerHandler) addService(service *service.ServerService) {
 
 func (h *ServerHandler) addHasher(key string) {
 	h.hasher = hash.NewSHA256(key)
+}
+
+func (h *ServerHandler) addCryptoCertificate(path string) error {
+	cert, err := key_pair.NewPrivateKey(path)
+	if err != nil {
+		return err
+	}
+	h.cryptoCertificate = cert
+	return nil
 }
 
 // регистрируем роуты
@@ -249,6 +267,15 @@ func (h *ServerHandler) UpdateBatchJSON(res http.ResponseWriter, req *http.Reque
 	}
 
 	data := buf.Bytes()
+
+	if h.cryptoCertificate != nil {
+		data, err = h.cryptoCertificate.Decrypt(data)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			log.Println("error decrypt body", err)
+			return
+		}
+	}
 	var metrics []models.Metrics
 	// десериализуем JSON в Visitor
 	if err = json.Unmarshal(data, &metrics); err != nil {
@@ -304,9 +331,19 @@ func (h *ServerHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var metrics models.Metrics
+	data := buf.Bytes()
+
+	if h.cryptoCertificate != nil {
+		data, err = h.cryptoCertificate.Decrypt(data)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			log.Println("error decrypt body", err)
+			return
+		}
+	}
 
 	// десериализуем JSON в Visitor
-	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+	if err = json.Unmarshal(data, &metrics); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		log.Println("error read  json", err)
 		return

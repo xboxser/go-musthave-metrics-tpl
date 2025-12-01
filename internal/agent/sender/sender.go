@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"metrics/internal/hash"
+	"metrics/internal/service/key_pair"
 	"net/http"
 	"time"
 
@@ -12,10 +13,11 @@ import (
 )
 
 type Sender struct {
-	baseURL *string
-	client  *http.Client
-	sugar   zap.SugaredLogger
-	hasher  hash.Hasher
+	baseURL           *string
+	client            *http.Client
+	sugar             zap.SugaredLogger
+	hasher            hash.Hasher
+	cryptoCertificate *key_pair.PublicKey
 }
 
 func NewSender(baseURL *string) *Sender {
@@ -40,10 +42,27 @@ func (s *Sender) InitHasher(key string) {
 	s.hasher = hash.NewSHA256(key)
 }
 
+func (s *Sender) InitCryptoCertificate(path string) error {
+	cryptoCertificate, err := key_pair.NewPublicKey(path)
+	if err != nil {
+		return err
+	}
+	s.cryptoCertificate = cryptoCertificate
+	return nil
+}
+
 func (s *Sender) SendRequest(json []byte) error {
 
 	var compressedBuf bytes.Buffer
 	gz := gzip.NewWriter(&compressedBuf)
+
+	if s.cryptoCertificate != nil {
+		encryptedJson, err := s.cryptoCertificate.Encrypt(json)
+		if err != nil {
+			return err
+		}
+		json = encryptedJson
+	}
 
 	// Сжатие данных
 	if _, err := gz.Write(json); err != nil {

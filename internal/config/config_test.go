@@ -20,6 +20,7 @@ func TestNewConfigServer(t *testing.T) {
 	oldRestore := os.Getenv("RESTORE")
 	oldAuditFile := os.Getenv("AUDIT_FILE")
 	oldAuditURL := os.Getenv("AUDIT_URL")
+	oldCryptoKeyPath := os.Getenv("CRYPTO_KEY")
 
 	// сохраняем старые значения, чтобы потом восстановить после прохождения тестов
 	defer func() {
@@ -32,6 +33,7 @@ func TestNewConfigServer(t *testing.T) {
 		os.Setenv("RESTORE", oldRestore)
 		os.Setenv("AUDIT_FILE", oldAuditFile)
 		os.Setenv("AUDIT_URL", oldAuditURL)
+		os.Setenv("CRYPTO_KEY", oldCryptoKeyPath)
 	}()
 
 	// Проверяем на получение дефолтных значений
@@ -41,6 +43,7 @@ func TestNewConfigServer(t *testing.T) {
 		os.Unsetenv("STORE_INTERVAL")
 		os.Unsetenv("FILE_STORAGE_PATH")
 		os.Unsetenv("RESTORE")
+		os.Unsetenv("CRYPTO_KEY")
 
 		// Устанавливаем значения, чтобы не было ошибок у парсера флагов
 		os.Args = []string{"program"}
@@ -50,6 +53,7 @@ func TestNewConfigServer(t *testing.T) {
 		require.NotEmpty(t, cfg.IntervalSave)
 		require.NotEmpty(t, cfg.FileStoragePath)
 		require.NotEmpty(t, cfg.Restore)
+		require.NotEmpty(t, cfg.CryptoKeyPrivatePath)
 		require.Empty(t, cfg.KEY)
 		require.Empty(t, cfg.DateBaseDSN)
 		require.Empty(t, cfg.AuditFile)
@@ -63,12 +67,14 @@ func TestNewConfigServer(t *testing.T) {
 		URL := "localhost:8080"
 		interval := 10
 		KEY := "1234567890"
+		cryptoKeyPath := "/private/"
 
 		os.Setenv("ADDRESS", URL)
 		os.Setenv("STORE_INTERVAL", strconv.Itoa(interval))
 		os.Setenv("FILE_STORAGE_PATH", "FILE_STORAGE_PATH")
 		os.Setenv("DATABASE_DSN", "DATABASE_DSN")
 		os.Setenv("KEY", KEY)
+		os.Setenv("CRYPTO_KEY", cryptoKeyPath)
 		os.Setenv("RESTORE", "true")
 		os.Setenv("AUDIT_FILE", "AUDIT_FILE")
 		os.Setenv("AUDIT_URL", "AUDIT_URL")
@@ -82,6 +88,7 @@ func TestNewConfigServer(t *testing.T) {
 		require.Equal(t, cfg.FileStoragePath, "FILE_STORAGE_PATH")
 		require.Equal(t, cfg.Restore, true)
 		require.Equal(t, cfg.KEY, KEY)
+		require.Equal(t, cfg.CryptoKeyPrivatePath, cryptoKeyPath)
 		require.Equal(t, cfg.DateBaseDSN, "DATABASE_DSN")
 		require.Equal(t, cfg.AuditFile, "AUDIT_FILE")
 		require.Equal(t, cfg.AuditURL, "AUDIT_URL")

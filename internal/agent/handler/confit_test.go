@@ -17,6 +17,7 @@ func TestNewConfigAgent(t *testing.T) {
 	oldURL := os.Getenv("ADDRESS")
 	oldKEY := os.Getenv("KEY")
 	oldRateLimit := os.Getenv("RATE_LIMIT")
+	oldCryptoKeyPath := os.Getenv("CRYPTO_KEY")
 
 	// сохраняем старые значения, чтобы потом восстановить после прохождения тестов
 	defer func() {
@@ -26,6 +27,7 @@ func TestNewConfigAgent(t *testing.T) {
 		os.Setenv("ADDRESS", oldURL)
 		os.Setenv("KEY", oldKEY)
 		os.Setenv("RATE_LIMIT", oldRateLimit)
+		os.Setenv("CRYPTO_KEY", oldCryptoKeyPath)
 	}()
 
 	// Проверяем на получение дефолтных значений
@@ -35,6 +37,7 @@ func TestNewConfigAgent(t *testing.T) {
 		os.Unsetenv("DATABASE_URI")
 		os.Unsetenv("ACCRUAL_SYSTEM_ADDRESS")
 		os.Unsetenv("ACCRUAL_COUNT_CHAN")
+		os.Unsetenv("CRYPTO_KEY")
 
 		// Устанавливаем значения, чтобы не было ошибок у парсера флагов
 		os.Args = []string{"program"}
@@ -44,6 +47,7 @@ func TestNewConfigAgent(t *testing.T) {
 		require.NotEmpty(t, cfg.PollInterval)
 		require.NotEmpty(t, cfg.URL)
 		require.NotEmpty(t, cfg.RateLimit)
+		require.NotEmpty(t, cfg.CryptoKeyPath)
 		require.Empty(t, cfg.KEY)
 	})
 
@@ -55,11 +59,12 @@ func TestNewConfigAgent(t *testing.T) {
 		KEY := "1234567890"
 		rateLimit := 2
 		pollInterval := 1
-
+		cryptoKeyPath := "/private/"
 		os.Setenv("REPORT_INTERVAL", strconv.Itoa(reportInterval))
 		os.Setenv("POLL_INTERVAL", strconv.Itoa(pollInterval))
 		os.Setenv("ADDRESS", URL)
 		os.Setenv("KEY", KEY)
+		os.Setenv("CRYPTO_KEY", cryptoKeyPath)
 		os.Setenv("RATE_LIMIT", strconv.Itoa(rateLimit))
 
 		// Устанавливаем значения, чтобы не было ошибок у парсера флагов
@@ -69,6 +74,7 @@ func TestNewConfigAgent(t *testing.T) {
 		require.Equal(t, cfg.ReportInterval, reportInterval)
 		require.Equal(t, cfg.URL, URL)
 		require.Equal(t, cfg.KEY, KEY)
+		require.Equal(t, cfg.CryptoKeyPath, cryptoKeyPath)
 		require.Equal(t, cfg.RateLimit, rateLimit)
 		require.Equal(t, cfg.PollInterval, pollInterval)
 	})

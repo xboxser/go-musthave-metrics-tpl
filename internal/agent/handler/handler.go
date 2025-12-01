@@ -16,6 +16,13 @@ func Run() {
 	if configAgent.KEY != "" {
 		send.InitHasher(configAgent.KEY)
 	}
+
+	if configAgent.CryptoKeyPath != "" {
+		err := send.InitCryptoCertificate(configAgent.CryptoKeyPath)
+		if err != nil {
+			panic(err)
+		}
+	}
 	service := service.NewAgentService(metricsModel, send, configAgent.RateLimit)
 
 	pollTicker := time.NewTicker(time.Duration(configAgent.PollInterval) * time.Second)

@@ -80,6 +80,11 @@ func Run(service *service.ServerService) {
 	}
 
 	h.read()
+
+	// канал для получения сигналов завершения
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
 	if h.config.IntervalSave > 0 {
 		saveTicker := time.NewTicker(time.Duration(h.config.IntervalSave) * time.Second)
 		defer saveTicker.Stop()
@@ -105,7 +110,7 @@ func (h *ServerHandler) startServer() error {
 
 	// Канал для перехвата сигналов
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	// Запускаем сервер в отдельной горутине
 	go func() {

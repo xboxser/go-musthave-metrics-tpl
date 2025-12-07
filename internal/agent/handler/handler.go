@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"metrics/internal/agent/config"
 	"metrics/internal/agent/sender"
 	"metrics/internal/agent/service"
 	models "metrics/internal/model"
@@ -9,7 +10,7 @@ import (
 
 func Run() {
 
-	configAgent := NewConfigAgent()
+	configAgent := config.NewConfigAgent()
 
 	metricsModel := models.NewMemStorage()
 	send := sender.NewSender(&configAgent.URL)

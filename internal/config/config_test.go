@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"strconv"
 	"testing"
@@ -92,5 +93,47 @@ func TestNewConfigServer(t *testing.T) {
 		require.Equal(t, cfg.DateBaseDSN, "DATABASE_DSN")
 		require.Equal(t, cfg.AuditFile, "AUDIT_FILE")
 		require.Equal(t, cfg.AuditURL, "AUDIT_URL")
+	})
+}
+
+func TestConfigJSON(t *testing.T) {
+	t.Run("checking empty path", func(t *testing.T) {
+		cfgDef := ConfigServer{}
+		cfg := ConfigServer{}
+		configJSON(&cfg)
+		require.Equal(t, cfg, cfgDef)
+	})
+
+	t.Run("checking config", func(t *testing.T) {
+		// Создаем временный файл
+		tmpFile, err := os.CreateTemp("", "config_*.json")
+		require.Empty(t, err)
+		defer tmpFile.Close()
+
+		// Создаем пример конфигурации
+		cfgDef := ConfigServerJson{
+			Address:       "localhost:8080",
+			Restore:       true,
+			StoreInterval: 10,
+			StoreFile:     "dump.json",
+			Database:      "connection_string",
+			CryptoKey:     "key.pem",
+		}
+
+		configData, err := json.MarshalIndent(cfgDef, "", "  ")
+		require.Empty(t, err)
+
+		_, err = tmpFile.Write(configData)
+		require.Empty(t, err)
+		defer os.Remove(tmpFile.Name())
+		cfg := ConfigServer{ConfigPath: tmpFile.Name()}
+		configJSON(&cfg)
+
+		require.Equal(t, cfgDef.Address, cfg.Address)
+		require.Equal(t, cfgDef.Restore, cfg.Restore)
+		require.Equal(t, cfgDef.StoreInterval, cfg.IntervalSave)
+		require.Equal(t, cfgDef.StoreFile, cfg.FileStoragePath)
+		require.Equal(t, cfgDef.CryptoKey, cfg.CryptoKeyPrivatePath)
+		require.Equal(t, cfgDef.Database, cfg.DateBaseDSN)
 	})
 }

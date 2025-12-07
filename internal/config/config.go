@@ -3,25 +3,30 @@ package config
 import (
 	"flag"
 	"os"
+	"path/filepath"
 
 	"github.com/caarlos0/env"
 )
 
 // ConfigServer - конфиг сервер
 type ConfigServer struct {
-	Address         string `env:"ADDRESS"`           // Адрес сервера
-	IntervalSave    int    `env:"STORE_INTERVAL"`    // Интервал сохранения метрик
-	FileStoragePath string `env:"FILE_STORAGE_PATH"` // Имя и путь до файла сохранения метрика
-	DateBaseDSN     string `env:"DATABASE_DSN"`      // Подключение к БД
-	KEY             string `env:"KEY"`               // Ключ используемый в SHA256
-	Restore         bool   `env:"RESTORE"`           // Имя и путь до файла, читается при запуске сервер
-	AuditFile       string `env:"AUDIT_FILE"`        // Путь к файлу, в который сохраняются логи аудита
-	AuditURL        string `env:"AUDIT_URL"`         // Путь к url, в который отправляются логи аудита
+	Address              string `env:"ADDRESS"`           // Адрес сервера
+	IntervalSave         int    `env:"STORE_INTERVAL"`    // Интервал сохранения метрик
+	FileStoragePath      string `env:"FILE_STORAGE_PATH"` // Имя и путь до файла сохранения метрика
+	DateBaseDSN          string `env:"DATABASE_DSN"`      // Подключение к БД
+	KEY                  string `env:"KEY"`               // Ключ используемый в SHA256
+	Restore              bool   `env:"RESTORE"`           // Имя и путь до файла, читается при запуске сервер
+	AuditFile            string `env:"AUDIT_FILE"`        // Путь к файлу, в который сохраняются логи аудита
+	AuditURL             string `env:"AUDIT_URL"`         // Путь к url, в который отправляются логи аудита
+	CryptoKeyPrivatePath string `env:"CRYPTO_KEY"`        // Путь до файла с приватным ключом
 }
 
 func NewConfigServer() *ConfigServer {
 	var cfg ConfigServer
 	_ = env.Parse(&cfg)
+
+	homePath, _ := os.UserHomeDir()
+	homePath = filepath.Join(homePath, "private.pem")
 
 	serverFlags := flag.NewFlagSet("server", flag.ExitOnError)
 	address := serverFlags.String("a", "localhost:8080", "port server")
@@ -33,6 +38,7 @@ func NewConfigServer() *ConfigServer {
 	dateBaseDSN := serverFlags.String("d", "", "host db PostgreSQL")
 	restore := serverFlags.Bool("r", true, "read file to start server")
 	key := serverFlags.String("k", "", "specify the encryption key")
+	cryptoKeyPath := serverFlags.String("crypto-key", homePath, "path crypto key")
 
 	auditFile := serverFlags.String("audit-file", "", "путь к файлу, в который сохраняются логи аудита")
 	auditURL := serverFlags.String("audit-url", "", "путь к url, в который отправляются логи аудита")
@@ -69,5 +75,10 @@ func NewConfigServer() *ConfigServer {
 	if !cfg.Restore {
 		cfg.Restore = *restore
 	}
+
+	if cfg.CryptoKeyPrivatePath == "" {
+		cfg.CryptoKeyPrivatePath = *cryptoKeyPath
+	}
+
 	return &cfg
 }

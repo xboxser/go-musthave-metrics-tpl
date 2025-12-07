@@ -43,7 +43,9 @@ func (c *PostgresErrorClassifier) Classify(err error) PGErrorClassification {
 
 func ClassifyPgError(pgErr *pgconn.PgError) PGErrorClassification {
 	// Коды ошибок PostgreSQL: https://www.postgresql.org/docs/current/errcodes-appendix.html
-
+	if pgErr == nil {
+		return NonRetriable
+	}
 	switch pgErr.Code {
 	// Класс 08 - Ошибки соединения
 	case pgerrcode.ConnectionException,

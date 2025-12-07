@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/format"
-	"go/token"
 	"strings"
 	"text/template"
 )
@@ -100,13 +99,4 @@ func zeroValue(expr ast.Expr, structName, fieldName string) string {
 		// пропускае значение
 		return ""
 	}
-}
-
-func exprToString(expr ast.Expr) string {
-	var buf bytes.Buffer
-	err := format.Node(&buf, token.NewFileSet(), expr)
-	if err != nil {
-		return ""
-	}
-	return buf.String()
 }

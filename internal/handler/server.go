@@ -10,11 +10,11 @@ import (
 	"metrics/internal/audit"
 	modelAudit "metrics/internal/audit/model"
 	"metrics/internal/config"
-	"metrics/internal/config/db"
 	"metrics/internal/handler/middleware"
 	"metrics/internal/hash"
 	models "metrics/internal/model"
 	"metrics/internal/service"
+	key_pair "metrics/internal/service/key_pair"
 	"net"
 	"net/http"
 	"os"
@@ -28,21 +28,20 @@ import (
 )
 
 type ServerHandler struct {
-	service *service.ServerService
-	config  *config.ConfigServer
-	m       *middleware.RequestMiddleware
-	db      *db.DB
-	hasher  hash.Hasher
-	event   *audit.Event
-	storage *Storage
+	service           *service.ServerService
+	config            *config.ConfigServer
+	m                 *middleware.RequestMiddleware
+	hasher            hash.Hasher
+	event             *audit.Event
+	storage           *StorageManager
+	cryptoCertificate *key_pair.PrivateKey
 }
 
-func NewServerHandler() (*ServerHandler, error) {
-	config := config.NewConfigServer()
+func NewServerHandler(config *config.ConfigServer) (*ServerHandler, error) {
 	event := new(audit.Event)
 	event.Register(audit.NewFileSubscriber(config.AuditFile))
 	event.Register(audit.NewURLSubscriber(config.AuditURL))
-	storage := NewStorage(config)
+	storage := NewStorageManager(config)
 	return &ServerHandler{
 		config:  config,
 		m:       middleware.NewRequestMiddleware(),
@@ -54,8 +53,8 @@ func NewServerHandler() (*ServerHandler, error) {
 
 // Run - основной метод запуска обработчика сервера
 func Run(service *service.ServerService) {
-
-	h, err := NewServerHandler()
+	config := config.NewConfigServer()
+	h, err := NewServerHandler(config)
 
 	if err != nil {
 		panic(err)
@@ -63,6 +62,13 @@ func Run(service *service.ServerService) {
 
 	h.addService(service)
 	h.addHasher(h.config.KEY)
+
+	if h.config.CryptoKeyPrivatePath != "" {
+		err := h.addCryptoCertificate(h.config.CryptoKeyPrivatePath)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	defer h.storage.Close()
 
@@ -131,6 +137,15 @@ func (h *ServerHandler) addHasher(key string) {
 	h.hasher = hash.NewSHA256(key)
 }
 
+func (h *ServerHandler) addCryptoCertificate(path string) error {
+	cert, err := key_pair.NewPrivateKey(path)
+	if err != nil {
+		return err
+	}
+	h.cryptoCertificate = cert
+	return nil
+}
+
 // регистрируем роуты
 func (h *ServerHandler) registerRoutes() *chi.Mux {
 	r := chi.NewRouter()
@@ -162,14 +177,10 @@ func (h *ServerHandler) registerRoutes() *chi.Mux {
 }
 
 func (h *ServerHandler) connectDB(ctx context.Context) error {
-	if h.config.DateBaseDSN == "" {
-		return nil
-	}
-	db, err := db.NewDB(ctx, h.config.DateBaseDSN)
+	err := h.storage.ConnectDB(ctx)
 	if err != nil {
 		return err
 	}
-	h.db = db
 	return nil
 }
 
@@ -204,17 +215,7 @@ func (h *ServerHandler) save() {
 }
 
 func (h *ServerHandler) saveToDB() bool {
-	if h.config.DateBaseDSN == "" || !h.db.Ping() {
-		return false
-	}
-	err := h.db.SaveAll(h.service.GetModels())
-	if err != nil {
-		log.Printf("Ошибка при записи в БД: %v\n", err)
-	} else {
-		return true
-	}
-
-	return false
+	return h.storage.SaveToDB(h.service.GetModels())
 }
 
 func (h *ServerHandler) saveToFile() {
@@ -234,13 +235,8 @@ func (h *ServerHandler) read() {
 }
 
 func (h *ServerHandler) readFromDB() bool {
-	if h.config.DateBaseDSN == "" || !h.db.Ping() {
-		return false
-	}
-
-	m, err := h.db.ReadAll()
-	if err != nil {
-		log.Println("Не удалось получить информацию из БД", err)
+	m, ok := h.storage.ReadFromDB()
+	if !ok {
 		return false
 	}
 
@@ -270,6 +266,15 @@ func (h *ServerHandler) UpdateBatchJSON(res http.ResponseWriter, req *http.Reque
 	}
 
 	data := buf.Bytes()
+
+	if h.cryptoCertificate != nil {
+		data, err = h.cryptoCertificate.Decrypt(data)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			log.Println("error decrypt body", err)
+			return
+		}
+	}
 	var metrics []models.Metrics
 	// десериализуем JSON в Visitor
 	if err = json.Unmarshal(data, &metrics); err != nil {
@@ -325,9 +330,19 @@ func (h *ServerHandler) updateJSON(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var metrics models.Metrics
+	data := buf.Bytes()
+
+	if h.cryptoCertificate != nil {
+		data, err = h.cryptoCertificate.Decrypt(data)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			log.Println("error decrypt body", err)
+			return
+		}
+	}
 
 	// десериализуем JSON в Visitor
-	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+	if err = json.Unmarshal(data, &metrics); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		log.Println("error read  json", err)
 		return
@@ -408,7 +423,7 @@ func (h *ServerHandler) Update(res http.ResponseWriter, req *http.Request) {
 
 // Ping - проверка есть ли подключение к БД
 func (h *ServerHandler) Ping(res http.ResponseWriter, req *http.Request) {
-	if h.db != nil && h.db.Ping() {
+	if h.storage.db != nil && h.storage.db.Ping() {
 		res.WriteHeader(http.StatusOK)
 	} else {
 		res.WriteHeader(http.StatusInternalServerError)

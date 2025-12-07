@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"metrics/internal/config"
 	models "metrics/internal/model"
 	"os"
@@ -13,7 +14,7 @@ func TestNewStorage(t *testing.T) {
 	cfg := &config.ConfigServer{}
 	cfg.FileStoragePath = "test.json"
 
-	storage := NewStorage(cfg)
+	storage := NewStorageManager(cfg)
 	defer storage.Close()
 	// Проверяем, что структура создана
 	assert.NotNil(t, storage)
@@ -32,7 +33,7 @@ func TestSaveAndRead(t *testing.T) {
 
 	cfg := &config.ConfigServer{}
 	cfg.FileStoragePath = testFileName
-	storage := NewStorage(cfg)
+	storage := NewStorageManager(cfg)
 	defer storage.Close()
 	delta := int64(42)
 	value := float64(3.14)
@@ -69,4 +70,48 @@ func TestSaveAndRead(t *testing.T) {
 		}
 	}()
 
+}
+
+func TestNilDB(t *testing.T) {
+	testFileName := "test.json"
+
+	cfg := &config.ConfigServer{}
+	cfg.FileStoragePath = testFileName
+	defer func() {
+		if _, err := os.Stat(testFileName); err == nil {
+			os.Remove(testFileName)
+		}
+	}()
+
+	t.Run("when database is nil", func(t *testing.T) {
+		storage := NewStorageManager(cfg)
+		defer storage.Close()
+
+		result := storage.Ping()
+		assert.False(t, result)
+	})
+
+	t.Run("when database is nil", func(t *testing.T) {
+		storage := NewStorageManager(cfg)
+		defer storage.Close()
+
+		result := storage.ConnectDB(context.Background())
+		assert.Nil(t, result)
+	})
+	t.Run("when database is nil, save()", func(t *testing.T) {
+		storage := NewStorageManager(cfg)
+		defer storage.Close()
+
+		result := storage.SaveToDB([]models.Metrics{})
+		assert.False(t, result)
+	})
+
+	t.Run("when database is nil, read()", func(t *testing.T) {
+		storage := NewStorageManager(cfg)
+		defer storage.Close()
+
+		metrics, result := storage.ReadFromDB()
+		assert.False(t, result)
+		assert.Nil(t, metrics)
+	})
 }

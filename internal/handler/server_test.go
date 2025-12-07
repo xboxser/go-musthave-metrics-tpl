@@ -123,4 +123,26 @@ func TestAddService(t *testing.T) {
 	require.Equal(t, h.service, service)
 }
 
-addMetrics TODO
+// TestAddMetrics - проверка добавления метрики
+func TestAddMetrics(t *testing.T) {
+	cfg := &config.ConfigServer{FileStoragePath: "test.json"}
+	h, err := NewServerHandler(cfg)
+	require.Empty(t, err)
+
+	model := models.NewMemStorage()
+	service := service.NewServeService(model)
+	h.addService(service)
+
+	var value int64 = 123
+
+	t.Run("errorType", func(t *testing.T) {
+		err = h.addMetrics(models.Metrics{ID: "test", MType: "random", Delta: &value})
+		require.NotEmpty(t, err)
+	})
+
+	t.Run("notError", func(t *testing.T) {
+		err = h.addMetrics(models.Metrics{ID: "test", MType: models.Counter, Delta: &value})
+		require.Empty(t, err)
+	})
+
+}

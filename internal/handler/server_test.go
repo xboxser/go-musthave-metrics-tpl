@@ -1,6 +1,14 @@
 package handler
 
-import "testing"
+import (
+	"metrics/internal/config"
+	"metrics/internal/hash"
+	models "metrics/internal/model"
+	"metrics/internal/service"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestGetParamsURL(t *testing.T) {
 	tests := []struct {
@@ -69,3 +77,50 @@ func TestValidateTypeMetrics(t *testing.T) {
 		})
 	}
 }
+
+// TestNewServerHandler - проверяем корректность создания объекта
+func TestNewServerHandler(t *testing.T) {
+	cfg := &config.ConfigServer{}
+	cfg.FileStoragePath = "test.json"
+	h, err := NewServerHandler(cfg)
+
+	require.Empty(t, err)
+	require.NotEmpty(t, h)
+}
+
+// TestAddCryptoCertificate - проверяем создание сертификата
+func TestAddCryptoCertificate(t *testing.T) {
+	cfg := &config.ConfigServer{FileStoragePath: "test.json"}
+	h, err := NewServerHandler(cfg)
+	require.Empty(t, err)
+	t.Run("errorCryptoCertificate", func(t *testing.T) {
+		err = h.addCryptoCertificate("_randomName_")
+		require.Error(t, err)
+	})
+}
+
+// TestAddHasher - проверяем создание корректного хеша
+func TestAddHasher(t *testing.T) {
+	cfg := &config.ConfigServer{FileStoragePath: "test.json"}
+	h, err := NewServerHandler(cfg)
+	require.Empty(t, err)
+
+	str := "string"
+	h.addHasher(str)
+	hasher := hash.NewSHA256(str)
+	require.Equal(t, h.hasher, hasher)
+}
+
+func TestAddService(t *testing.T) {
+	cfg := &config.ConfigServer{FileStoragePath: "test.json"}
+	h, err := NewServerHandler(cfg)
+	require.Empty(t, err)
+
+	model := models.NewMemStorage()
+	service := service.NewServeService(model)
+
+	h.addService(service)
+	require.Equal(t, h.service, service)
+}
+
+addMetrics TODO

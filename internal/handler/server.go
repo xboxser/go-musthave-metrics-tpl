@@ -37,8 +37,7 @@ type ServerHandler struct {
 	cryptoCertificate *key_pair.PrivateKey
 }
 
-func NewServerHandler() (*ServerHandler, error) {
-	config := config.NewConfigServer()
+func NewServerHandler(config *config.ConfigServer) (*ServerHandler, error) {
 	event := new(audit.Event)
 	event.Register(audit.NewFileSubscriber(config.AuditFile))
 	event.Register(audit.NewURLSubscriber(config.AuditURL))
@@ -54,8 +53,8 @@ func NewServerHandler() (*ServerHandler, error) {
 
 // Run - основной метод запуска обработчика сервера
 func Run(service *service.ServerService) {
-
-	h, err := NewServerHandler()
+	config := config.NewConfigServer()
+	h, err := NewServerHandler(config)
 
 	if err != nil {
 		panic(err)

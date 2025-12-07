@@ -5,7 +5,7 @@ import (
 	"metrics/internal/storage"
 )
 
-type ConfigServerJson struct {
+type ConfigServerJSON struct {
 	Address       string `json:"address"`
 	Restore       bool   `json:"restore"`
 	StoreInterval int    `json:"store_interval"`
@@ -14,8 +14,8 @@ type ConfigServerJson struct {
 	CryptoKey     string `json:"crypto_key"`
 }
 
-func NewConfigServerJson(fileName string) *ConfigServerJson {
-	config := &ConfigServerJson{}
+func NewConfigServerJSON(fileName string) *ConfigServerJSON {
+	config := &ConfigServerJSON{}
 	storageJSON := storage.NewReadJSON(fileName)
 	configBytes, err := storageJSON.GetConfigJSON()
 	if err != nil {

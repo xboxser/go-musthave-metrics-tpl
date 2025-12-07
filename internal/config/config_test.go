@@ -111,7 +111,7 @@ func TestConfigJSON(t *testing.T) {
 		defer tmpFile.Close()
 
 		// Создаем пример конфигурации
-		cfgDef := ConfigServerJson{
+		cfgDef := ConfigServerJSON{
 			Address:       "localhost:8080",
 			Restore:       true,
 			StoreInterval: 10,

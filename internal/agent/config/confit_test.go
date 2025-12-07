@@ -96,7 +96,7 @@ func TestConfigJSON(t *testing.T) {
 		defer tmpFile.Close()
 
 		// Создаем пример конфигурации
-		cfgDef := ConfigAgentJson{
+		cfgDef := ConfigAgentJSON{
 			Address:        "localhost:8080",
 			ReportInterval: 10,
 			PollInterval:   5,

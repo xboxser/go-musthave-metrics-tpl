@@ -70,7 +70,7 @@ func configJSON(c *ConfigAgent) {
 	if c.ConfigPath == "" {
 		return
 	}
-	configJSON := NewConfigAgentJson(c.ConfigPath)
+	configJSON := NewConfigAgentJSON(c.ConfigPath)
 
 	if c.URL == "" {
 		c.URL = configJSON.Address

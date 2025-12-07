@@ -98,7 +98,7 @@ func configJSON(c *ConfigServer) {
 	if c.ConfigPath == "" {
 		return
 	}
-	configJSON := NewConfigServerJson(c.ConfigPath)
+	configJSON := NewConfigServerJSON(c.ConfigPath)
 
 	if c.Address == "" {
 		c.Address = configJSON.Address

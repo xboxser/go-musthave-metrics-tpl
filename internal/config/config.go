@@ -19,7 +19,9 @@ type ConfigServer struct {
 	AuditFile            string `env:"AUDIT_FILE"`        // Путь к файлу, в который сохраняются логи аудита
 	AuditURL             string `env:"AUDIT_URL"`         // Путь к url, в который отправляются логи аудита
 	CryptoKeyPrivatePath string `env:"CRYPTO_KEY"`        // Путь до файла с приватным ключом
-	ConfigPath           string `env:"CONFIG"`            //  Путь до файла с json конфигом
+	ConfigPath           string `env:"CONFIG"`            // Путь до файла с json конфигом
+	TrustedSubnet        string `env:"TRUSTED_SUBNET"`    // CIDR, example "192.168.1.0/24"
+
 }
 
 func NewConfigServer() *ConfigServer {
@@ -43,6 +45,7 @@ func NewConfigServer() *ConfigServer {
 
 	auditFile := serverFlags.String("audit-file", "", "путь к файлу, в который сохраняются логи аудита")
 	auditURL := serverFlags.String("audit-url", "", "путь к url, в который отправляются логи аудита")
+	trustedSubnet := serverFlags.String("t", "", "CIDR, example 192.168.1.0/24")
 
 	configPath := serverFlags.String("c", "", "path config file")
 
@@ -87,6 +90,10 @@ func NewConfigServer() *ConfigServer {
 		cfg.ConfigPath = *configPath
 	}
 
+	if cfg.TrustedSubnet == "" {
+		cfg.TrustedSubnet = *trustedSubnet
+	}
+
 	configJSON(&cfg)
 
 	return &cfg
@@ -118,5 +125,10 @@ func configJSON(c *ConfigServer) {
 	}
 	if c.DateBaseDSN == "" {
 		c.DateBaseDSN = configJSON.Database
+	}
+
+	if c.TrustedSubnet == "" {
+		c.TrustedSubnet = configJSON.TrustedSubnet
+
 	}
 }

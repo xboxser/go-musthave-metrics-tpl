@@ -131,6 +131,9 @@ func (s *Sender) Send(compressedBuf bytes.Buffer, hashSum string) (int, error) {
 		req.Header.Set("HashSHA256", hashSum)
 	}
 
+	// Добавляем заголовок X-Real-IP с IP-адресом хоста агента
+	req.Header.Set("X-Real-IP", "127.0.0.1")
+
 	response, err := s.client.Do(req)
 	if err != nil {
 		s.sugar.Infoln(

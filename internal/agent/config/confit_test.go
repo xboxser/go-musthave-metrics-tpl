@@ -1,6 +1,7 @@
-package agent
+package config
 
 import (
+	"encoding/json"
 	"os"
 	"strconv"
 	"testing"
@@ -77,5 +78,43 @@ func TestNewConfigAgent(t *testing.T) {
 		require.Equal(t, cfg.CryptoKeyPath, cryptoKeyPath)
 		require.Equal(t, cfg.RateLimit, rateLimit)
 		require.Equal(t, cfg.PollInterval, pollInterval)
+	})
+}
+
+func TestConfigJSON(t *testing.T) {
+	t.Run("checking empty path", func(t *testing.T) {
+		cfgDef := ConfigAgent{}
+		cfg := ConfigAgent{}
+		configJSON(&cfg)
+		require.Equal(t, cfg, cfgDef)
+	})
+
+	t.Run("checking config", func(t *testing.T) {
+		// Создаем временный файл
+		tmpFile, err := os.CreateTemp("", "config_*.json")
+		require.Empty(t, err)
+		defer tmpFile.Close()
+
+		// Создаем пример конфигурации
+		cfgDef := ConfigAgentJSON{
+			Address:        "localhost:8080",
+			ReportInterval: 10,
+			PollInterval:   5,
+			CryptoKey:      "/path/to/key.pem",
+		}
+
+		configData, err := json.MarshalIndent(cfgDef, "", "  ")
+		require.Empty(t, err)
+
+		_, err = tmpFile.Write(configData)
+		require.Empty(t, err)
+		defer os.Remove(tmpFile.Name())
+		cfg := ConfigAgent{ConfigPath: tmpFile.Name()}
+		configJSON(&cfg)
+
+		require.Equal(t, cfgDef.Address, cfg.URL)
+		require.Equal(t, cfgDef.CryptoKey, cfg.CryptoKeyPath)
+		require.Equal(t, cfgDef.PollInterval, cfg.PollInterval)
+		require.Equal(t, cfgDef.ReportInterval, cfg.ReportInterval)
 	})
 }

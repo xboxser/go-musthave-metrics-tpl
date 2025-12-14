@@ -2,11 +2,12 @@ package handler
 
 import (
 	"context"
-	"log"
 	"metrics/internal/config"
 	"metrics/internal/config/db"
 	models "metrics/internal/model"
 	"metrics/internal/storage"
+
+	"go.uber.org/zap"
 )
 
 // Storage - хранение и чтение метрик
@@ -14,9 +15,18 @@ type StorageManager struct {
 	config *config.ConfigServer
 	file   *storage.FileJSON
 	db     *db.DB
+	sugar  zap.SugaredLogger
 }
 
 func NewStorageManager(config *config.ConfigServer) *StorageManager {
+	var sugar zap.SugaredLogger
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
+	sugar = *logger.Sugar()
+
 	file, err := storage.NewFileJSON(config.FileStoragePath)
 	if err != nil {
 		panic(err)
@@ -24,7 +34,20 @@ func NewStorageManager(config *config.ConfigServer) *StorageManager {
 	return &StorageManager{
 		config: config,
 		file:   file,
+		sugar:  sugar,
 	}
+}
+
+func (h *StorageManager) Read() []models.Metrics {
+	if !h.config.Restore {
+		return nil
+	}
+	models, ok := h.ReadFromDB()
+	if ok {
+		return models
+	}
+
+	return h.ReadFromFile()
 }
 
 func (h *StorageManager) ReadFromFile() []models.Metrics {
@@ -63,7 +86,7 @@ func (h *StorageManager) SaveToDB(models []models.Metrics) bool {
 	}
 	err := h.db.SaveAll(models)
 	if err != nil {
-		log.Printf("Ошибка при записи в БД: %v\n", err)
+		h.sugar.Errorf("Ошибка при записи в БД: %v\n", err)
 	} else {
 		return true
 	}
@@ -78,7 +101,7 @@ func (h *StorageManager) ReadFromDB() ([]models.Metrics, bool) {
 
 	m, err := h.db.ReadAll()
 	if err != nil {
-		log.Println("Не удалось получить информацию из БД", err)
+		h.sugar.Errorln("Не удалось получить информацию из БД", err)
 		return nil, false
 	}
 

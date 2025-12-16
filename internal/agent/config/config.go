@@ -1,4 +1,4 @@
-package agent
+package config
 
 import (
 	"flag"
@@ -16,6 +16,7 @@ type ConfigAgent struct {
 	KEY            string `env:"KEY"`
 	RateLimit      int    `env:"RATE_LIMIT"`
 	CryptoKeyPath  string `env:"CRYPTO_KEY"` //  Путь до файла с публичным ключом
+	ConfigPath     string `env:"CONFIG"`     //  Путь до файла с json конфигом
 }
 
 func NewConfigAgent() *ConfigAgent {
@@ -32,6 +33,7 @@ func NewConfigAgent() *ConfigAgent {
 	key := agentFlags.String("k", "", "specify the encryption key")
 	rateLimit := agentFlags.Int("l", 2, "rate limit")
 	cryptoKeyPath := agentFlags.String("crypto-key", homePath, "path crypto key")
+	configPath := agentFlags.String("c", "", "path config file")
 	agentFlags.Parse(os.Args[1:])
 
 	if cfg.PollInterval == 0 {
@@ -52,5 +54,36 @@ func NewConfigAgent() *ConfigAgent {
 	if cfg.CryptoKeyPath == "" {
 		cfg.CryptoKeyPath = *cryptoKeyPath
 	}
+
+	if cfg.ConfigPath == "" {
+		cfg.ConfigPath = *configPath
+	}
+
+	configJSON(&cfg)
+
 	return &cfg
+}
+
+// configJSON - читаем данные из configJSON
+// данные параметры менее приоритетны чем из командной строки или env
+func configJSON(c *ConfigAgent) {
+	if c.ConfigPath == "" {
+		return
+	}
+	configJSON := NewConfigAgentJSON(c.ConfigPath)
+
+	if c.URL == "" {
+		c.URL = configJSON.Address
+	}
+
+	if c.CryptoKeyPath == "" {
+		c.CryptoKeyPath = configJSON.CryptoKey
+	}
+
+	if c.PollInterval == 0 {
+		c.PollInterval = configJSON.PollInterval
+	}
+	if c.ReportInterval == 0 {
+		c.ReportInterval = configJSON.ReportInterval
+	}
 }

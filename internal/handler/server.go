@@ -30,7 +30,7 @@ import (
 type ServerHandler struct {
 	service           *service.ServerService
 	config            *config.ConfigServer
-	m                 *middleware.RequestMiddleware
+	middleware        *middleware.RequestMiddleware
 	hasher            hash.Hasher
 	event             *audit.Event
 	storage           *StorageManager
@@ -43,11 +43,11 @@ func NewServerHandler(config *config.ConfigServer) (*ServerHandler, error) {
 	event.Register(audit.NewURLSubscriber(config.AuditURL))
 	storage := NewStorageManager(config)
 	return &ServerHandler{
-		config:  config,
-		m:       middleware.NewRequestMiddleware(),
-		hasher:  nil,
-		event:   event,
-		storage: storage,
+		config:     config,
+		middleware: middleware.NewRequestMiddleware(),
+		hasher:     nil,
+		event:      event,
+		storage:    storage,
 	}, nil
 }
 
@@ -80,6 +80,11 @@ func Run(service *service.ServerService) {
 	}
 
 	h.read()
+
+	// канал для получения сигналов завершения
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
 	if h.config.IntervalSave > 0 {
 		saveTicker := time.NewTicker(time.Duration(h.config.IntervalSave) * time.Second)
 		defer saveTicker.Stop()
@@ -105,7 +110,7 @@ func (h *ServerHandler) startServer() error {
 
 	// Канал для перехвата сигналов
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	// Запускаем сервер в отдельной горутине
 	go func() {
@@ -159,20 +164,20 @@ func (h *ServerHandler) registerRoutes() *chi.Mux {
 	// r.Mount("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 	r.Route("/update", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.updateJSON))
-		r.Post("/{type}/{name}/{value}", h.m.WithLogging(h.Update))
+		r.Post("/", h.middleware.WithLogging(h.updateJSON))
+		r.Post("/{type}/{name}/{value}", h.middleware.WithLogging(h.Update))
 	})
 	r.Route("/updates", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.UpdateBatchJSON))
+		r.Post("/", h.middleware.WithLogging(h.UpdateBatchJSON))
 	})
 	r.Route("/value", func(r chi.Router) {
-		r.Post("/", h.m.WithLogging(h.ValueJSON))
-		r.Get("/{type}/{name}", h.m.WithLogging(h.Value))
+		r.Post("/", h.middleware.WithLogging(h.ValueJSON))
+		r.Get("/{type}/{name}", h.middleware.WithLogging(h.Value))
 	})
 
-	r.Get("/ping", h.m.WithLogging(h.Ping))
+	r.Get("/ping", h.middleware.WithLogging(h.Ping))
 
-	r.Get("/", h.m.WithLogging(h.Main))
+	r.Get("/", h.middleware.WithLogging(h.Main))
 	return r
 }
 
@@ -227,26 +232,10 @@ func (h *ServerHandler) read() {
 		return
 	}
 
-	if h.readFromDB() {
-		return
+	m := h.storage.Read()
+	if m != nil {
+		h.service.SetModel(m)
 	}
-
-	h.readFromFile()
-}
-
-func (h *ServerHandler) readFromDB() bool {
-	m, ok := h.storage.ReadFromDB()
-	if !ok {
-		return false
-	}
-
-	h.service.SetModel(m)
-	return true
-}
-
-func (h *ServerHandler) readFromFile() {
-	m := h.storage.ReadFromFile()
-	h.service.SetModel(m)
 }
 
 // UpdateBatchJSON - обновлять несколько метрик одновременно, отправляя массив метрик в формате JSON.

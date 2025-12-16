@@ -19,6 +19,7 @@ type ConfigServer struct {
 	AuditFile            string `env:"AUDIT_FILE"`        // Путь к файлу, в который сохраняются логи аудита
 	AuditURL             string `env:"AUDIT_URL"`         // Путь к url, в который отправляются логи аудита
 	CryptoKeyPrivatePath string `env:"CRYPTO_KEY"`        // Путь до файла с приватным ключом
+	ConfigPath           string `env:"CONFIG"`            //  Путь до файла с json конфигом
 }
 
 func NewConfigServer() *ConfigServer {
@@ -42,6 +43,8 @@ func NewConfigServer() *ConfigServer {
 
 	auditFile := serverFlags.String("audit-file", "", "путь к файлу, в который сохраняются логи аудита")
 	auditURL := serverFlags.String("audit-url", "", "путь к url, в который отправляются логи аудита")
+
+	configPath := serverFlags.String("c", "", "path config file")
 
 	serverFlags.Parse(os.Args[1:])
 	if cfg.Address == "" {
@@ -80,5 +83,40 @@ func NewConfigServer() *ConfigServer {
 		cfg.CryptoKeyPrivatePath = *cryptoKeyPath
 	}
 
+	if cfg.ConfigPath == "" {
+		cfg.ConfigPath = *configPath
+	}
+
+	configJSON(&cfg)
+
 	return &cfg
+}
+
+// configJSON - читаем данные из configJSON
+// данные параметры менее приоритетны чем из командной строки или env
+func configJSON(c *ConfigServer) {
+	if c.ConfigPath == "" {
+		return
+	}
+	configJSON := NewConfigServerJSON(c.ConfigPath)
+
+	if c.Address == "" {
+		c.Address = configJSON.Address
+	}
+
+	if !c.Restore {
+		c.Restore = configJSON.Restore
+	}
+	if c.IntervalSave == 0 {
+		c.IntervalSave = configJSON.StoreInterval
+	}
+	if c.FileStoragePath == "" {
+		c.FileStoragePath = configJSON.StoreFile
+	}
+	if c.CryptoKeyPrivatePath == "" {
+		c.CryptoKeyPrivatePath = configJSON.CryptoKey
+	}
+	if c.DateBaseDSN == "" {
+		c.DateBaseDSN = configJSON.Database
+	}
 }

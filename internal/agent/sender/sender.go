@@ -13,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -48,7 +49,7 @@ func NewSender(baseURL *string) *Sender {
 func (s *Sender) InitGRPC(grpcAddress string) error {
 	s.grpcAddress = grpcAddress
 
-	conn, err := grpc.Dial(s.grpcAddress, grpc.WithInsecure())
+	conn, err := grpc.NewClient(s.grpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to connect to gRPC server: %w", err)
 	}

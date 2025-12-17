@@ -9,14 +9,11 @@ import (
 	"metrics/internal/proto"
 	"net"
 	"os"
-
-	"google.golang.org/grpc"
 )
 
 type MetricsSender struct {
 	send      *sender.Sender
 	rateLimit int
-	grpcConn  *grpc.ClientConn
 	useGRPC   bool
 }
 

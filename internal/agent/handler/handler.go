@@ -18,6 +18,16 @@ func Run() {
 
 	metricsModel := models.NewMemStorage()
 	send := sender.NewSender(&configAgent.URL)
+
+	// Инициализируем gRPC если указан адрес
+	if configAgent.GRPCAddress != "" {
+		err := send.InitGRPC(configAgent.GRPCAddress)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to initialize gRPC: %v", err))
+		}
+		defer send.CloseGRPC()
+	}
+
 	if configAgent.KEY != "" {
 		send.InitHasher(configAgent.KEY)
 	}
@@ -28,7 +38,14 @@ func Run() {
 			panic(err)
 		}
 	}
-	service := service.NewAgentService(metricsModel, send, configAgent.RateLimit)
+
+	metricsSender := service.NewMetricsSender(send, configAgent.RateLimit)
+	// Включаем gRPC если указан адрес
+	if configAgent.GRPCAddress != "" {
+		metricsSender.EnableGRPC(configAgent.GRPCAddress)
+	}
+
+	service := service.NewAgentService(metricsModel, metricsSender, configAgent.RateLimit)
 
 	pollTicker := time.NewTicker(time.Duration(configAgent.PollInterval) * time.Second)
 	reportTicker := time.NewTicker(time.Duration(configAgent.ReportInterval) * time.Second)

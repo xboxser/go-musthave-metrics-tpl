@@ -13,6 +13,7 @@ import (
 	"metrics/internal/handler/middleware"
 	"metrics/internal/hash"
 	models "metrics/internal/model"
+	"metrics/internal/proto"
 	"metrics/internal/service"
 	key_pair "metrics/internal/service/key_pair"
 	"net"
@@ -25,16 +26,75 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type ServerHandler struct {
 	service           *service.ServerService
 	config            *config.ConfigServer
-	middleware        *middleware.RequestMiddleware
+	middlewareRequest *middleware.RequestMiddleware
 	hasher            hash.Hasher
 	event             *audit.Event
 	storage           *StorageManager
 	cryptoCertificate *key_pair.PrivateKey
+	grpcServer        *grpc.Server
+}
+
+// Реализация gRPC сервиса
+type metricsServer struct {
+	proto.UnimplementedMetricsServer
+	handler *ServerHandler
+}
+
+func (s *metricsServer) UpdateMetrics(ctx context.Context, req *proto.UpdateMetricsRequest) (*proto.UpdateMetricsResponse, error) {
+	// Проверяем IP адрес клиента
+	clientIP, err := s.getClientIP(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "failed to get client IP: %v", err)
+	}
+
+	// Проверяем, что IP находится в доверенной подсети
+	if s.handler.config.TrustedSubnet != "" {
+		ok, err := middleware.CIDRValidate(s.handler.config.TrustedSubnet, clientIP)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to validate IP subnet: %v", err)
+		}
+		if !ok {
+			return nil, status.Errorf(codes.PermissionDenied, "IP address not in trusted subnet")
+		}
+	}
+
+	// Обрабатываем метрики
+	for _, metric := range req.Metrics {
+		fmt.Println(metric)
+		switch metric.Type {
+		case proto.Metric_GAUGE:
+			value := metric.Value
+			s.handler.service.Update(metric.Id, "gauge", fmt.Sprintf("%g", value))
+		case proto.Metric_COUNTER:
+			delta := metric.Delta
+			s.handler.service.Update(metric.Id, "counter", strconv.FormatInt(delta, 10))
+		}
+	}
+
+	return &proto.UpdateMetricsResponse{}, nil
+}
+
+func (s *metricsServer) getClientIP(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("no metadata in context")
+	}
+
+	ips := md.Get("x-real-ip")
+	if len(ips) == 0 {
+		return "", fmt.Errorf("no x-real-ip in metadata")
+	}
+
+	return ips[0], nil
 }
 
 func NewServerHandler(config *config.ConfigServer) (*ServerHandler, error) {
@@ -43,12 +103,76 @@ func NewServerHandler(config *config.ConfigServer) (*ServerHandler, error) {
 	event.Register(audit.NewURLSubscriber(config.AuditURL))
 	storage := NewStorageManager(config)
 	return &ServerHandler{
-		config:     config,
-		middleware: middleware.NewRequestMiddleware(),
-		hasher:     nil,
-		event:      event,
-		storage:    storage,
+		config:            config,
+		middlewareRequest: middleware.NewRequestMiddleware(),
+		hasher:            nil,
+		event:             event,
+		storage:           storage,
 	}, nil
+}
+
+func (h *ServerHandler) StartGRPCServer() {
+	if h.config.GRPCAddress == "" {
+		return
+	}
+
+	lis, err := net.Listen("tcp", h.config.GRPCAddress)
+	if err != nil {
+		log.Fatalf("Failed to listen on gRPC port: %v", err)
+	}
+
+	// Создаем gRPC сервер с интерцептором для проверки IP
+	h.grpcServer = grpc.NewServer(
+		grpc.UnaryInterceptor(h.ipValidationInterceptor),
+	)
+
+	// Регистрируем наш сервис
+	proto.RegisterMetricsServer(h.grpcServer, &metricsServer{handler: h})
+
+	go func() {
+		log.Printf("Starting gRPC server on %s", h.config.GRPCAddress)
+		if err := h.grpcServer.Serve(lis); err != nil {
+			log.Fatalf("Failed to serve gRPC: %v", err)
+		}
+	}()
+}
+
+func (h *ServerHandler) StopGRPCServer() {
+	if h.grpcServer != nil {
+		h.grpcServer.GracefulStop()
+	}
+}
+
+// Интерцептор для проверки IP адреса
+func (h *ServerHandler) ipValidationInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	// Проверяем только для нашего сервиса метрик
+	if info.FullMethod == "/metrics.Metrics/UpdateMetrics" {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return nil, status.Errorf(codes.InvalidArgument, "no metadata in context")
+		}
+
+		ips := md.Get("x-real-ip")
+		if len(ips) == 0 {
+			return nil, status.Errorf(codes.InvalidArgument, "no x-real-ip in metadata")
+		}
+
+		clientIP := ips[0]
+
+		// Проверяем, что IP находится в доверенной подсети
+		if h.config.TrustedSubnet != "" {
+			ok, err := middleware.CIDRValidate(h.config.TrustedSubnet, clientIP)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to validate IP subnet: %v", err)
+			}
+			if !ok {
+				return nil, status.Errorf(codes.PermissionDenied, "IP address not in trusted subnet")
+			}
+		}
+	}
+
+	// Вызываем обработчик
+	return handler(ctx, req)
 }
 
 // Run - основной метод запуска обработчика сервера
@@ -71,6 +195,10 @@ func Run(service *service.ServerService) {
 	}
 
 	defer h.storage.Close()
+
+	// Запускаем gRPC сервер
+	h.StartGRPCServer()
+	defer h.StopGRPCServer()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -155,7 +283,7 @@ func (h *ServerHandler) addCryptoCertificate(path string) error {
 func (h *ServerHandler) registerRoutes() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.GzipMiddleware)
-
+	r.Use(middleware.CIDRMiddleware(h.config.TrustedSubnet))
 	// Регистрация маршрутов pprof
 	// r.Mount("/debug/pprof", http.HandlerFunc(pprof.Index))
 	// r.Mount("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
@@ -164,20 +292,20 @@ func (h *ServerHandler) registerRoutes() *chi.Mux {
 	// r.Mount("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 	r.Route("/update", func(r chi.Router) {
-		r.Post("/", h.middleware.WithLogging(h.updateJSON))
-		r.Post("/{type}/{name}/{value}", h.middleware.WithLogging(h.Update))
+		r.Post("/", h.middlewareRequest.WithLogging(h.updateJSON))
+		r.Post("/{type}/{name}/{value}", h.middlewareRequest.WithLogging(h.Update))
 	})
 	r.Route("/updates", func(r chi.Router) {
-		r.Post("/", h.middleware.WithLogging(h.UpdateBatchJSON))
+		r.Post("/", h.middlewareRequest.WithLogging(h.UpdateBatchJSON))
 	})
 	r.Route("/value", func(r chi.Router) {
-		r.Post("/", h.middleware.WithLogging(h.ValueJSON))
-		r.Get("/{type}/{name}", h.middleware.WithLogging(h.Value))
+		r.Post("/", h.middlewareRequest.WithLogging(h.ValueJSON))
+		r.Get("/{type}/{name}", h.middlewareRequest.WithLogging(h.Value))
 	})
 
-	r.Get("/ping", h.middleware.WithLogging(h.Ping))
+	r.Get("/ping", h.middlewareRequest.WithLogging(h.Ping))
 
-	r.Get("/", h.middleware.WithLogging(h.Main))
+	r.Get("/", h.middlewareRequest.WithLogging(h.Main))
 	return r
 }
 

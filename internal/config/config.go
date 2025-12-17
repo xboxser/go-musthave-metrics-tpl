@@ -11,6 +11,7 @@ import (
 // ConfigServer - конфиг сервер
 type ConfigServer struct {
 	Address              string `env:"ADDRESS"`           // Адрес сервера
+	GRPCAddress          string `env:"GRPC_ADDRESS"`      // Адрес gRPC сервера
 	IntervalSave         int    `env:"STORE_INTERVAL"`    // Интервал сохранения метрик
 	FileStoragePath      string `env:"FILE_STORAGE_PATH"` // Имя и путь до файла сохранения метрика
 	DateBaseDSN          string `env:"DATABASE_DSN"`      // Подключение к БД
@@ -33,6 +34,7 @@ func NewConfigServer() *ConfigServer {
 
 	serverFlags := flag.NewFlagSet("server", flag.ExitOnError)
 	address := serverFlags.String("a", "localhost:8080", "port server")
+	grpcAddress := serverFlags.String("g", "localhost:8081", "gRPC port server")
 	intervalSave := serverFlags.Int("i", 300, "time interval save")
 	fileStoragePath := serverFlags.String("f", "jsonBD.json", "the path to the file to save the data")
 	// postgres://metrics:qwerty!23@localhost:5432/metrics_db?sslmode=disable&search_path=metrics_schema
@@ -52,6 +54,10 @@ func NewConfigServer() *ConfigServer {
 	serverFlags.Parse(os.Args[1:])
 	if cfg.Address == "" {
 		cfg.Address = *address
+	}
+
+	if cfg.GRPCAddress == "" {
+		cfg.GRPCAddress = *grpcAddress
 	}
 
 	if cfg.IntervalSave == 0 {

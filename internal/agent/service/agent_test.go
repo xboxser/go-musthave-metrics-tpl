@@ -15,7 +15,8 @@ func TestAgentService(t *testing.T) {
 	url := "http://localhost:8080/"
 	send := sender.NewSender(&url)
 	rateLimit := 10
-	agent := NewAgentService(metricsModel, send, rateLimit)
+	metricsSender := NewMetricsSender(send, rateLimit)
+	agent := NewAgentService(metricsModel, metricsSender, rateLimit)
 
 	require.NotNil(t, agent)
 

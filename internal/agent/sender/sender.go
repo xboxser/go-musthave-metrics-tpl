@@ -3,13 +3,18 @@ package sender
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"metrics/internal/hash"
+	"metrics/internal/proto"
 	key_pair "metrics/internal/service/key_pair"
 	"net/http"
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type Sender struct {
@@ -18,6 +23,9 @@ type Sender struct {
 	sugar             zap.SugaredLogger
 	hasher            hash.Hasher
 	cryptoCertificate *key_pair.PublicKey
+	grpcAddress       string
+	grpcConn          *grpc.ClientConn
+	grpcClient        proto.MetricsClient
 }
 
 func NewSender(baseURL *string) *Sender {
@@ -36,6 +44,42 @@ func NewSender(baseURL *string) *Sender {
 		sugar:   sugar,
 		hasher:  nil,
 	}
+}
+
+func (s *Sender) InitGRPC(grpcAddress string) error {
+	s.grpcAddress = grpcAddress
+
+	conn, err := grpc.NewClient(s.grpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to connect to gRPC server: %w", err)
+	}
+
+	s.grpcConn = conn
+	s.grpcClient = proto.NewMetricsClient(conn)
+	return nil
+}
+
+func (s *Sender) CloseGRPC() error {
+	if s.grpcConn != nil {
+		return s.grpcConn.Close()
+	}
+	return nil
+}
+
+func (s *Sender) SendMetricsGRPC(metrics []*proto.Metric, clientIP string) error {
+	req := &proto.UpdateMetricsRequest{
+		Metrics: metrics,
+	}
+
+	// Добавляем IP клиента в метаданные
+	ctx := metadata.AppendToOutgoingContext(context.Background(), "x-real-ip", clientIP)
+
+	_, err := s.grpcClient.UpdateMetrics(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to send metrics via gRPC: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Sender) InitHasher(key string) {
@@ -130,6 +174,9 @@ func (s *Sender) Send(compressedBuf bytes.Buffer, hashSum string) (int, error) {
 	if hashSum != "" {
 		req.Header.Set("HashSHA256", hashSum)
 	}
+
+	// Добавляем заголовок X-Real-IP с IP-адресом хоста агента
+	req.Header.Set("X-Real-IP", "127.0.0.1")
 
 	response, err := s.client.Do(req)
 	if err != nil {

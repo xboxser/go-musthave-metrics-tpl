@@ -13,6 +13,7 @@ type ConfigAgent struct {
 	ReportInterval int    `env:"REPORT_INTERVAL"` // Интервал отправки данных на сервер, в секундах
 	PollInterval   int    `env:"POLL_INTERVAL"`   // Интервал сбора метрик, в секундах
 	URL            string `env:"ADDRESS"`         // Адрес получателя метрик
+	GRPCAddress    string `env:"GRPC_ADDRESS"`    // Адрес gRPC сервера
 	KEY            string `env:"KEY"`
 	RateLimit      int    `env:"RATE_LIMIT"`
 	CryptoKeyPath  string `env:"CRYPTO_KEY"` //  Путь до файла с публичным ключом
@@ -28,6 +29,7 @@ func NewConfigAgent() *ConfigAgent {
 
 	agentFlags := flag.NewFlagSet("agent", flag.ExitOnError)
 	url := agentFlags.String("a", "localhost:8080", "port server")
+	grpcAddress := agentFlags.String("g", "localhost:8081", "gRPC port server")
 	pollInterval := agentFlags.Int("p", 2, "The interval for building metrics")
 	reportInterval := agentFlags.Int("r", 10, "The interval for sending data to the server")
 	key := agentFlags.String("k", "", "specify the encryption key")
@@ -44,6 +46,9 @@ func NewConfigAgent() *ConfigAgent {
 	}
 	if cfg.URL == "" {
 		cfg.URL = *url
+	}
+	if cfg.GRPCAddress == "" {
+		cfg.GRPCAddress = *grpcAddress
 	}
 	if cfg.KEY == "" {
 		cfg.KEY = *key

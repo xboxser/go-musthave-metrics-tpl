@@ -11,6 +11,7 @@ import (
 // ConfigServer - конфиг сервер
 type ConfigServer struct {
 	Address              string `env:"ADDRESS"`           // Адрес сервера
+	GRPCAddress          string `env:"GRPC_ADDRESS"`      // Адрес gRPC сервера
 	IntervalSave         int    `env:"STORE_INTERVAL"`    // Интервал сохранения метрик
 	FileStoragePath      string `env:"FILE_STORAGE_PATH"` // Имя и путь до файла сохранения метрика
 	DateBaseDSN          string `env:"DATABASE_DSN"`      // Подключение к БД
@@ -19,7 +20,9 @@ type ConfigServer struct {
 	AuditFile            string `env:"AUDIT_FILE"`        // Путь к файлу, в который сохраняются логи аудита
 	AuditURL             string `env:"AUDIT_URL"`         // Путь к url, в который отправляются логи аудита
 	CryptoKeyPrivatePath string `env:"CRYPTO_KEY"`        // Путь до файла с приватным ключом
-	ConfigPath           string `env:"CONFIG"`            //  Путь до файла с json конфигом
+	ConfigPath           string `env:"CONFIG"`            // Путь до файла с json конфигом
+	TrustedSubnet        string `env:"TRUSTED_SUBNET"`    // CIDR, example "192.168.1.0/24"
+
 }
 
 func NewConfigServer() *ConfigServer {
@@ -31,6 +34,7 @@ func NewConfigServer() *ConfigServer {
 
 	serverFlags := flag.NewFlagSet("server", flag.ExitOnError)
 	address := serverFlags.String("a", "localhost:8080", "port server")
+	grpcAddress := serverFlags.String("g", "localhost:8081", "gRPC port server")
 	intervalSave := serverFlags.Int("i", 300, "time interval save")
 	fileStoragePath := serverFlags.String("f", "jsonBD.json", "the path to the file to save the data")
 	// postgres://metrics:qwerty!23@localhost:5432/metrics_db?sslmode=disable&search_path=metrics_schema
@@ -43,12 +47,17 @@ func NewConfigServer() *ConfigServer {
 
 	auditFile := serverFlags.String("audit-file", "", "путь к файлу, в который сохраняются логи аудита")
 	auditURL := serverFlags.String("audit-url", "", "путь к url, в который отправляются логи аудита")
+	trustedSubnet := serverFlags.String("t", "", "CIDR, example 192.168.1.0/24")
 
 	configPath := serverFlags.String("c", "", "path config file")
 
 	serverFlags.Parse(os.Args[1:])
 	if cfg.Address == "" {
 		cfg.Address = *address
+	}
+
+	if cfg.GRPCAddress == "" {
+		cfg.GRPCAddress = *grpcAddress
 	}
 
 	if cfg.IntervalSave == 0 {
@@ -87,6 +96,10 @@ func NewConfigServer() *ConfigServer {
 		cfg.ConfigPath = *configPath
 	}
 
+	if cfg.TrustedSubnet == "" {
+		cfg.TrustedSubnet = *trustedSubnet
+	}
+
 	configJSON(&cfg)
 
 	return &cfg
@@ -118,5 +131,10 @@ func configJSON(c *ConfigServer) {
 	}
 	if c.DateBaseDSN == "" {
 		c.DateBaseDSN = configJSON.Database
+	}
+
+	if c.TrustedSubnet == "" {
+		c.TrustedSubnet = configJSON.TrustedSubnet
+
 	}
 }

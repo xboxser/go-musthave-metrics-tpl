@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"metrics/internal/agent/sender"
 	models "metrics/internal/model"
+	"metrics/internal/proto"
+	"net"
+	"os"
 )
 
 type MetricsSender struct {
 	send      *sender.Sender
 	rateLimit int
+	useGRPC   bool
 }
 
 func NewMetricsSender(send *sender.Sender, rateLimit int) *MetricsSender {
@@ -20,7 +24,76 @@ func NewMetricsSender(send *sender.Sender, rateLimit int) *MetricsSender {
 	}
 }
 
+func (s *MetricsSender) EnableGRPC(grpcAddress string) error {
+
+	err := s.send.InitGRPC(grpcAddress)
+	if err != nil {
+		return err
+	}
+	s.useGRPC = true
+	return nil
+}
+
 func (s *MetricsSender) SendMetrics(storage *models.MemStorage) error {
+	if s.useGRPC {
+		return s.sendMetricsGRPC(storage)
+	}
+	return s.sendMetricsHTTP(storage)
+}
+
+func (s *MetricsSender) sendMetricsGRPC(storage *models.MemStorage) error {
+	var protoMetrics []*proto.Metric
+
+	storage.GaugeMu.RLock()
+	for name, value := range storage.Gauge {
+		metric := &proto.Metric{
+			Id:    name,
+			Type:  proto.Metric_GAUGE,
+			Value: value,
+		}
+		protoMetrics = append(protoMetrics, metric)
+	}
+	storage.GaugeMu.RUnlock()
+
+	storage.CountMu.RLock()
+	for name, value := range storage.Counter {
+		metric := &proto.Metric{
+			Id:    name,
+			Type:  proto.Metric_COUNTER,
+			Delta: value,
+		}
+		protoMetrics = append(protoMetrics, metric)
+	}
+	storage.CountMu.RUnlock()
+
+	if len(protoMetrics) == 0 {
+		return nil
+	}
+
+	// Получаем IP клиента
+	clientIP := s.getClientIP()
+
+	// Отправляем метрики через gRPC
+	err := s.send.SendMetricsGRPC(protoMetrics, clientIP)
+	if err != nil {
+		return fmt.Errorf("error sending metrics via gRPC: %w", err)
+	}
+
+	return nil
+}
+
+func (s *MetricsSender) getClientIP() string {
+	host, _ := os.Hostname()
+	addrs, _ := net.LookupIP(host)
+	for _, addr := range addrs {
+		if ipv4 := addr.To4(); ipv4 != nil {
+			return ipv4.String()
+		}
+	}
+	return "127.0.0.1"
+}
+
+func (s *MetricsSender) sendMetricsHTTP(storage *models.MemStorage) error {
 	var metrics models.Metrics
 	var errs []error
 	var metricsBatch []models.Metrics

@@ -15,12 +15,12 @@ type AgentService struct {
 	rateLimit        int
 }
 
-func NewAgentService(model *models.MemStorage, send *sender.Sender, rateLimit int) *AgentService {
+func NewAgentService(model *models.MemStorage, metricsSender *MetricsSender, rateLimit int) *AgentService {
 	return &AgentService{
 		model:            model,
 		rateLimit:        rateLimit,
 		metricsCollector: NewMetricsCollector(model),
-		metricsSender:    NewMetricsSender(send, rateLimit),
+		metricsSender:    metricsSender,
 	}
 }
 
